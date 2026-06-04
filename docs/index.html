@@ -283,6 +283,61 @@
   }
   .reply-toggle:hover { background: rgba(0,0,0,0.04); color: var(--secondary); }
 
+  /* timeline */
+  .timeline {
+    background: white; border: 1px solid var(--separator-soft);
+    border-radius: 24px; padding: 24px 28px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 8px 28px -16px rgba(0,0,0,0.12);
+    margin-bottom: 24px;
+  }
+  .timeline-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; }
+  .timeline-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+  .timeline-sub { margin: 4px 0 0; font-size: 12px; color: var(--tertiary); }
+  .timeline-count { font-size: 12px; color: var(--tertiary); }
+  .timeline-body { display: flex; flex-direction: column; gap: 16px; }
+
+  .tl-day { display: grid; grid-template-columns: 64px 1fr; gap: 16px; align-items: start; }
+  .tl-day-label {
+    font-size: 11px; color: var(--tertiary); letter-spacing: 0.06em;
+    padding-top: 10px; text-align: right;
+  }
+  .tl-events { display: flex; flex-direction: column; gap: 6px; }
+  .tl-event {
+    position: relative; display: flex; align-items: stretch; gap: 12px;
+    padding: 8px 12px 8px 0;
+    border-radius: 10px;
+    transition: background 0.15s;
+  }
+  .tl-event:hover { background: rgba(0,0,0,0.02); }
+  .tl-event-bar { width: 3px; border-radius: 999px; flex-shrink: 0; }
+  .tl-event.cat-work    .tl-event-bar { background: #5b8def; }
+  .tl-event.cat-social  .tl-event-bar { background: #44a47c; }
+  .tl-event.cat-health  .tl-event-bar { background: #d68a3c; }
+  .tl-event.cat-emotion .tl-event-bar { background: #9876d6; }
+  .tl-event.cat-hobby   .tl-event-bar { background: #c95a5a; }
+  .tl-event.cat-daily   .tl-event-bar { background: #8e8e93; }
+  .tl-event-body { flex: 1; min-width: 0; }
+  .tl-event-tags { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: 11px; }
+  .tl-cat { font-weight: 500; }
+  .tl-event.cat-work    .tl-cat { color: #4271d4; }
+  .tl-event.cat-social  .tl-cat { color: #2e8a64; }
+  .tl-event.cat-health  .tl-cat { color: #b8722a; }
+  .tl-event.cat-emotion .tl-cat { color: #7e5cc1; }
+  .tl-event.cat-hobby   .tl-cat { color: #b04848; }
+  .tl-event.cat-daily   .tl-cat { color: #6e6e73; }
+  .tl-dot { color: var(--tertiary); }
+  .tl-mood { color: var(--tertiary); }
+  .tl-event-content { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--foreground); }
+
+  .tl-toggle-wrap { display: flex; justify-content: center; margin-top: 4px; }
+  .tl-toggle {
+    height: 28px; padding: 0 14px; border-radius: 999px;
+    font-size: 12px; color: var(--secondary);
+    background: rgba(0,0,0,0.03);
+    transition: background 0.15s;
+  }
+  .tl-toggle:hover { background: rgba(0,0,0,0.06); }
+
   /* toast */
   .toast {
     position: fixed; bottom: 32px; left: 50%; transform: translate(-50%, 8px);
@@ -424,9 +479,33 @@ function buildSeed() {
     },
   ];
 
+  // life_events extracted from messages by the Recorder Agent (in real version).
+  // [category, mood, content, daysAgo, hour]
+  const eventSeeds = [
+    ['work',    'frustrated',  '需求评审被推翻，方向没提前对齐',                6, 18],
+    ['social',  'relaxed',     '和朋友吃火锅，松了口气',                       6, 19],
+    ['work',    'frustrated',  'code review 提架构问题，没被采纳',              5, 15],
+    ['health',  'low',         '头疼大半天，靠咖啡撑过去',                     5, 15],
+    ['health',  'tired',       '睡眠不规律，常过十二点',                       5, 18],
+    ['work',    'focused',     'WFH 整天无会，专注写代码',                      4, 14],
+    ['health',  'energized',   '独自跑步五公里，全程没停',                     4, 19],
+    ['social',  'neutral',     '妈妈来电近一小时，以应付收场',                  3, 20],
+    ['health',  'tired',       '睡前刷手机到凌晨两点',                         3, 23],
+    ['social',  'inspired',    '遇到独立产品开发者，交流甚欢',                  2, 18],
+    ['emotion', 'low',         '意识到工作里缺乏自主权，感觉空',                2, 20],
+    ['hobby',   'frustrated',  '副业 PRD 卡在目标用户定义',                    1, 15],
+    ['daily',   'neutral',     '做饭步骤搞错，勉强吃下去',                     1, 20],
+    ['work',    'embarrassed', '周会被点名进度落后',                           0, 9],
+    ['emotion', 'mixed',       '承认落后，也意识到部分是需求变更',              0, 10],
+  ];
+  const life_events = eventSeeds.map(([category, mood, content, d, h], i) => ({
+    id: i + 1, category, mood, content, occurred_at: seedTime(d, h),
+  }));
+
   return {
     messages,
     observations,
+    life_events,
     profile: { display_name: 'nova' },
   };
 }
@@ -435,7 +514,15 @@ function buildSeed() {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // backfill life_events for users who loaded the demo before the timeline shipped
+      if (!parsed.life_events) {
+        parsed.life_events = buildSeed().life_events;
+        saveState(parsed);
+      }
+      return parsed;
+    }
   } catch {}
   const fresh = buildSeed();
   saveState(fresh);
@@ -729,6 +816,17 @@ function pickMockReply(_userText) {
 
 // ── Feed Page ─────────────────────────────────────────────────
 const KIND_LABEL = { observation: '观察到', suggestion: '也许', question: '想问' };
+const CATEGORY_LABEL = {
+  work: '工作', social: '社交', health: '身体',
+  emotion: '情绪', hobby: '兴趣', daily: '日常',
+};
+const MOOD_LABEL = {
+  frustrated: '受挫', relaxed: '放松', low: '低落', tired: '疲倦',
+  focused: '专注', energized: '充满能量', neutral: '平淡',
+  inspired: '受触动', embarrassed: '尴尬', mixed: '复杂',
+};
+
+let _timelineOpen = false;
 
 function FeedPage() {
   return el('div', { class: 'page' },
@@ -747,8 +845,86 @@ function FeedPage() {
             '让 ta 看看',
           ),
         ),
+        EventTimeline(),
         ...state.observations.map(ObservationCard),
       ),
+    ),
+  );
+}
+
+function EventTimeline() {
+  const events = (state.life_events || []).slice().sort((a,b) => b.occurred_at - a.occurred_at);
+  if (events.length === 0) return null;
+
+  const todayK = dayKey(Date.now());
+  const yesterdayK = dayKey(Date.now() - D);
+
+  // Group by day
+  const groups = new Map();
+  for (const e of events) {
+    const k = dayKey(e.occurred_at);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(e);
+  }
+  const orderedKeys = [...groups.keys()].sort((a,b) => a < b ? 1 : -1);
+
+  function dayLabel(k, ts) {
+    if (k === todayK) return '今天';
+    if (k === yesterdayK) return '昨天';
+    const d = new Date(ts);
+    const now = new Date();
+    const days = Math.round((now - d) / D);
+    if (days <= 7) return days + ' 天前';
+    return (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日';
+  }
+
+  // 默认显示今天+昨天，其余折叠
+  const alwaysVisibleKeys = orderedKeys.filter(k => k === todayK || k === yesterdayK);
+  const collapsedKeys = orderedKeys.filter(k => k !== todayK && k !== yesterdayK);
+  const visibleKeys = _timelineOpen ? orderedKeys : alwaysVisibleKeys;
+  const hiddenCount = collapsedKeys.reduce((n, k) => n + groups.get(k).length, 0);
+
+  return el('section', { class: 'timeline' },
+    el('div', { class: 'timeline-header' },
+      el('div', {},
+        el('h2', { class: 'timeline-title' }, '最近七天'),
+        el('p', { class: 'timeline-sub' }, 'ta 看到的，是这些事'),
+      ),
+      el('span', { class: 'timeline-count' }, events.length + ' 件'),
+    ),
+    el('div', { class: 'timeline-body' },
+      ...visibleKeys.map((k) =>
+        el('div', { class: 'tl-day' },
+          el('div', { class: 'tl-day-label' }, dayLabel(k, groups.get(k)[0].occurred_at)),
+          el('div', { class: 'tl-events' },
+            ...groups.get(k).map(EventRow)
+          ),
+        ),
+      ),
+      collapsedKeys.length > 0 && el('div', { class: 'tl-toggle-wrap' },
+        el('button', {
+          class: 'tl-toggle',
+          onclick: () => { _timelineOpen = !_timelineOpen; render(); }
+        },
+          _timelineOpen
+            ? '收起 ' + collapsedKeys.length + ' 天'
+            : '展开更早的 ' + collapsedKeys.length + ' 天 · ' + hiddenCount + ' 件',
+        ),
+      ),
+    ),
+  );
+}
+
+function EventRow(e) {
+  return el('div', { class: 'tl-event cat-' + e.category },
+    el('div', { class: 'tl-event-bar' }),
+    el('div', { class: 'tl-event-body' },
+      el('div', { class: 'tl-event-tags' },
+        el('span', { class: 'tl-cat' }, CATEGORY_LABEL[e.category] || e.category),
+        el('span', { class: 'tl-dot' }, '·'),
+        el('span', { class: 'tl-mood' }, MOOD_LABEL[e.mood] || e.mood),
+      ),
+      el('p', { class: 'tl-event-content' }, e.content),
     ),
   );
 }
