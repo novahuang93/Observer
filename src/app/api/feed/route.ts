@@ -7,7 +7,7 @@ export async function GET() {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT id, kind, title, body, related_event_ids, created_at, feedback, feedback_at
+      `SELECT id, kind, title, body, related_event_ids, created_at, feedback, feedback_at, user_reply, user_reply_at
        FROM observations ORDER BY id DESC LIMIT 50`,
     )
     .all() as ObservationRow[];

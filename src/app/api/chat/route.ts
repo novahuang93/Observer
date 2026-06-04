@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getDb, getProfile, type MessageRow } from "@/lib/db";
 import { ensureGreeting, runRecorder } from "@/lib/agents/recorder";
+import { runObserver } from "@/lib/agents/observer";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await runRecorder(message.trim());
+
+    // Fire-and-forget: if new life events were recorded, let Observer run
+    // in the background so the feed updates without the user having to
+    // manually trigger it.
+    if (result.eventsRecorded > 0) {
+      runObserver().catch((err) =>
+        console.error("[chat] background observer failed:", err),
+      );
+    }
+
     return Response.json({
       assistantMessageId: result.assistantMessageId,
       assistantText: result.assistantText,

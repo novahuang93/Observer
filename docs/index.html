@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="观察 · Observer — AI 以第三者视角记录和点评你的生活" />
+<title>观察 · Observer</title>
+<style>
+  :root {
+    --background: #ffffff;
+    --canvas: #fbfbfd;
+    --foreground: #1d1d1f;
+    --secondary: #6e6e73;
+    --tertiary: #86868b;
+    --separator: rgba(0, 0, 0, 0.08);
+    --separator-soft: rgba(0, 0, 0, 0.04);
+    --accent: #0071e3;
+    --accent-soft: #e8f1fd;
+    --bubble-user: #1d1d1f;
+    --bubble-assistant: #f2f2f3;
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+      "PingFang SC", "Helvetica Neue", Helvetica, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--canvas);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    font-size: 15px;
+  }
+  ::selection { background: var(--accent-soft); color: var(--foreground); }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; padding: 0; color: inherit; }
+  textarea { font-family: inherit; }
+  a { color: inherit; text-decoration: none; }
+
+  /* layout */
+  #app { display: flex; flex-direction: column; height: 100vh; }
+  .nav {
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--separator-soft);
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+  .nav-inner {
+    max-width: 768px; margin: 0 auto; padding: 0 24px;
+    height: 56px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-brand { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab {
+    height: 32px; padding: 0 14px; border-radius: 999px;
+    font-size: 13px; color: var(--secondary); display: flex; align-items: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .nav-tab:hover { background: rgba(0,0,0,0.04); }
+  .nav-tab.active { background: var(--foreground); color: white; }
+  .demo-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--tertiary);
+    padding: 4px 10px; border-radius: 999px; background: rgba(0,0,0,0.04);
+  }
+  .demo-badge::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: #f5a623; box-shadow: 0 0 8px #f5a623;
+  }
+
+  /* page container */
+  .page { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+  /* chat */
+  .chat-scroll { flex: 1; overflow-y: auto; }
+  .chat-inner { max-width: 768px; margin: 0 auto; padding: 40px 24px 160px; }
+  .bubbles { display: flex; flex-direction: column; gap: 12px; }
+  .bubble-row { display: flex; }
+  .bubble-row.user { justify-content: flex-end; }
+  .bubble {
+    max-width: 80%; padding: 10px 16px; font-size: 15px; line-height: 1.55;
+    white-space: pre-wrap; word-break: break-word; border-radius: 24px;
+  }
+  .bubble.user { background: var(--bubble-user); color: white; border-bottom-right-radius: 8px; }
+  .bubble.assistant { background: var(--bubble-assistant); color: var(--foreground); border-bottom-left-radius: 8px; }
+
+  .earlier-toggle {
+    display: flex; justify-content: center; margin-bottom: 24px;
+  }
+  .earlier-toggle button {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 32px; padding: 0 14px; border-radius: 999px;
+    font-size: 12px; color: var(--secondary);
+    background: white; border: 1px solid var(--separator-soft);
+    transition: background 0.15s;
+  }
+  .earlier-toggle button:hover { background: rgba(0,0,0,0.03); }
+  .earlier-content { margin-top: 24px; display: flex; flex-direction: column; gap: 24px; }
+  .day-divider {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+  }
+  .day-divider .line { flex: 1; height: 1px; background: var(--separator-soft); }
+  .day-divider .label { font-size: 11px; color: var(--tertiary); letter-spacing: 0.08em; }
+
+  /* composer */
+  .composer-wrap {
+    position: sticky; bottom: 0;
+    background: linear-gradient(to top, var(--canvas) 60%, transparent);
+    padding: 32px 0 24px;
+  }
+  .composer-inner { max-width: 768px; margin: 0 auto; padding: 0 24px; }
+  .composer {
+    display: flex; align-items: flex-end; gap: 8px;
+    background: white; border: 1px solid var(--separator); border-radius: 24px;
+    padding: 8px 8px 8px 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px -12px rgba(0,0,0,0.12);
+  }
+  .composer textarea {
+    flex: 1; resize: none; outline: none; border: none; background: transparent;
+    font-size: 15px; line-height: 1.5; padding: 8px 0; max-height: 180px;
+  }
+  .composer textarea::placeholder { color: var(--tertiary); }
+  .send-btn {
+    flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--foreground); color: white;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, background 0.15s;
+  }
+  .send-btn:disabled { background: rgba(0,0,0,0.08); color: var(--tertiary); cursor: not-allowed; }
+  .send-btn:not(:disabled):hover { transform: scale(1.03); }
+  .send-btn:not(:disabled):active { transform: scale(0.95); }
+  .hint { margin-top: 12px; text-align: center; font-size: 11px; color: var(--tertiary); }
+
+  .typing { display: inline-flex; gap: 4px; padding: 4px 0; }
+  .typing span {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--tertiary);
+    animation: bounce 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-2px); }
+  }
+
+  /* welcome (orb) */
+  .welcome-page {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 0 24px 48px;
+  }
+  .orb { position: relative; width: 88px; height: 88px; }
+  .orb-core {
+    position: absolute; inset: 0; border-radius: 50%;
+    background:
+      radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 26%),
+      radial-gradient(circle at 60% 65%, #3a3a40 0%, #08080a 95%);
+    box-shadow:
+      0 10px 36px -6px rgba(0,0,0,0.28),
+      inset 0 -10px 16px -6px rgba(0,0,0,0.55),
+      inset 0 1px 2px rgba(255,255,255,0.18);
+    animation: orb-drift 6s ease-in-out infinite;
+  }
+  .orb-halo, .orb-halo-wide { position: absolute; border-radius: 50%; pointer-events: none; }
+  .orb-halo {
+    inset: -22px;
+    background: radial-gradient(circle, rgba(20,20,22,0.18) 0%, rgba(20,20,22,0) 62%);
+    animation: orb-breathe 4s ease-in-out infinite;
+  }
+  .orb-halo-wide {
+    inset: -56px;
+    background: radial-gradient(circle, rgba(20,20,22,0.1) 0%, rgba(20,20,22,0) 58%);
+    animation: orb-breathe 5.5s ease-in-out infinite reverse;
+  }
+  @keyframes orb-breathe {
+    0%, 100% { opacity: 0.55; transform: scale(0.92); }
+    50% { opacity: 1; transform: scale(1.08); }
+  }
+  @keyframes orb-drift {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-3px) scale(1.015); }
+  }
+  .welcome-greeting {
+    margin-top: 56px; max-width: 420px; text-align: center;
+    font-size: 17px; line-height: 1.75; white-space: pre-wrap;
+  }
+  .welcome-composer { margin-top: 40px; width: 100%; max-width: 420px; }
+  @keyframes welcome-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .welcome-in-1 { animation: welcome-in 0.7s ease-out 0.1s both; }
+  .welcome-in-2 { animation: welcome-in 0.7s ease-out 0.4s both; }
+  .welcome-in-3 { animation: welcome-in 0.7s ease-out 0.7s both; }
+
+  /* feed */
+  .feed-scroll { flex: 1; overflow-y: auto; }
+  .feed-inner { max-width: 768px; margin: 0 auto; padding: 48px 24px 96px; }
+  .feed-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 40px; gap: 16px; }
+  .feed-header h1 { font-size: 40px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; margin: 0; }
+  .feed-header p { margin: 8px 0 0; font-size: 15px; color: var(--secondary); }
+  .refresh-btn {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px;
+    height: 36px; padding: 0 16px; border-radius: 999px;
+    background: var(--foreground); color: white;
+    font-size: 13px; font-weight: 500;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  .refresh-btn:hover { transform: scale(1.02); }
+  .refresh-btn:active { transform: scale(0.95); }
+  .refresh-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .card {
+    background: white; border: 1px solid var(--separator-soft);
+    border-radius: 24px; padding: 24px 28px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 8px 28px -16px rgba(0,0,0,0.12);
+    transition: box-shadow 0.2s;
+    margin-bottom: 16px;
+  }
+  .card:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04), 0 12px 36px -16px rgba(0,0,0,0.16);
+  }
+  .card-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .card-kind {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 500;
+  }
+  .card-kind.observation { color: var(--secondary); }
+  .card-kind.suggestion { color: var(--accent); }
+  .card-kind.question { color: #8e5cd1; }
+  .card-time { font-size: 11px; color: var(--tertiary); }
+  .card-title { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; margin: 0; }
+  .card-body { margin: 8px 0 0; font-size: 15px; line-height: 1.65; color: rgba(29,29,31,0.85); }
+  .card-reply-shown {
+    margin-top: 16px; display: flex; gap: 10px; align-items: flex-start;
+  }
+  .card-reply-shown .label {
+    margin-top: 3px; font-size: 10px; color: var(--tertiary);
+    text-transform: uppercase; letter-spacing: 0.1em; flex-shrink: 0;
+  }
+  .card-reply-shown .text { font-size: 14px; line-height: 1.6; color: var(--secondary); font-style: italic; }
+  .reply-panel { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .reply-panel textarea {
+    width: 100%; resize: none; border-radius: 16px;
+    border: 1px solid var(--separator); background: var(--canvas);
+    padding: 12px 16px; font-size: 14px; line-height: 1.6; outline: none;
+    transition: border-color 0.15s;
+  }
+  .reply-panel textarea:focus { border-color: rgba(0,0,0,0.2); }
+  .reply-panel textarea::placeholder { color: var(--tertiary); }
+  .reply-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn-ghost {
+    height: 28px; padding: 0 12px; border-radius: 999px;
+    font-size: 12px; color: var(--secondary);
+    transition: background 0.15s;
+  }
+  .btn-ghost:hover { background: rgba(0,0,0,0.04); }
+  .btn-solid {
+    height: 28px; padding: 0 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 500;
+    background: var(--foreground); color: white;
+    transition: opacity 0.15s;
+  }
+  .btn-solid:disabled { opacity: 0.5; cursor: not-allowed; }
+  .card-actions {
+    margin-top: 20px; padding-top: 16px;
+    border-top: 1px solid var(--separator-soft);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .feedback-row { display: flex; align-items: center; gap: 4px; }
+  .feedback-btn {
+    height: 28px; padding: 0 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 500; color: var(--secondary);
+    transition: background 0.15s, color 0.15s;
+  }
+  .feedback-btn:hover { background: rgba(0,0,0,0.04); }
+  .feedback-btn.active { background: var(--foreground); color: white; }
+  .feedback-btn.dim { color: rgba(134,134,139,0.6); }
+  .reply-toggle {
+    height: 28px; padding: 0 12px; border-radius: 999px;
+    font-size: 12px; color: var(--tertiary);
+    transition: background 0.15s, color 0.15s;
+  }
+  .reply-toggle:hover { background: rgba(0,0,0,0.04); color: var(--secondary); }
+
+  /* toast */
+  .toast {
+    position: fixed; bottom: 32px; left: 50%; transform: translate(-50%, 8px);
+    z-index: 50; padding: 12px 20px; border-radius: 999px;
+    background: rgba(29,29,31,0.92); backdrop-filter: blur(8px);
+    color: white; font-size: 13px; white-space: nowrap;
+    box-shadow: 0 8px 24px -8px rgba(0,0,0,0.3);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* reset link */
+  .reset-link {
+    position: fixed; bottom: 12px; right: 16px; z-index: 40;
+    font-size: 11px; color: var(--tertiary); opacity: 0.6;
+    transition: opacity 0.15s;
+  }
+  .reset-link:hover { opacity: 1; }
+
+  /* scrollbar */
+  * { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.18) transparent; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.16); border-radius: 999px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="toast" class="toast" aria-live="polite"></div>
+<button id="reset-link" class="reset-link">重置 demo</button>
+
+<script>
+/* ============================================================
+   观察 · Observer · Demo
+   纯前端静态版，所有 AI 部分为预制内容。
+   ============================================================ */
+
+const STORAGE_KEY = 'observer-demo-v1';
+const D = 86_400_000;
+const H = 3_600_000;
+
+const GREETING_TEXT = '嗨，我们刚认识。\n\n我会在这儿安静地陪你记录日常——开心的、烦的、随手一想的——都行，不用整理。\n\n先问一下，我怎么称呼你？';
+
+// ── Seed data ─────────────────────────────────────────────────
+function seedTime(daysAgo, hour) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime() - daysAgo * D + hour * H;
+}
+
+function buildSeed() {
+  const messages = [];
+  let mid = 1;
+  function add(role, content, daysAgo, hour) {
+    messages.push({ id: mid++, role, content, created_at: seedTime(daysAgo, hour) });
+  }
+
+  add('assistant', GREETING_TEXT, 7, 9);
+
+  // 6 days ago
+  add('user', '今天开了一整天的需求评审，最后产品说所有方案要重新来过。感觉挺崩的，白干了。', 6, 18);
+  add('assistant', '全推翻？那确实很耗。你自己对原方案有没有觉得哪里可以更好的？', 6, 18);
+  add('user', '我觉得原方案没问题，主要是产品改了方向但没提前说清楚。晚上出去吃了火锅，好多了。', 6, 19);
+  add('assistant', '火锅续命。吃完好多了就好。', 6, 19);
+
+  // 5 days ago
+  add('user', 'review 同事代码，发现一个我觉得比较严重的架构问题，说了但没人接受，还是用了原方案。下午头疼了一下午，买了杯咖啡撑过去。', 5, 17);
+  add('assistant', '说了没人听，比不说还憋屈。头疼是纯粹气的，还是最近睡眠不好？', 5, 17);
+  add('user', '可能都有吧。睡眠最近确实不规律，经常过了十二点还没睡。', 5, 18);
+  add('assistant', '深夜睡不着是在刷手机还是脑子停不下来？', 5, 18);
+
+  // 4 days ago
+  add('user', '今天 WFH，全天没有会，专注写代码，进度快了很多。写完还去跑步了。', 4, 20);
+  add('assistant', '这种整块时间真的难得。跑步几公里？', 4, 20);
+  add('user', '5公里，戴着耳机跑完的，全程没停。最近好像只有跑步的时候才算是真的放松。', 4, 21);
+  add('assistant', '跑步成了你现在唯一能彻底关掉脑子的事了？', 4, 21);
+
+  // 3 days ago
+  add('user', '妈妈打电话来，聊了将近一个小时。她问工作怎样、有没有对象，我基本随便说说。睡前刷手机到凌晨两点。', 3, 22);
+  add('assistant', '和妈妈聊天通常是什么感觉？', 3, 22);
+  add('user', '要回答一堆问题的那种感觉，不是很轻松，但也不想不接。凌晨两点可能是下午喝了咖啡，睡不着。', 3, 23);
+  add('assistant', '这种"不想不接、但也接得很累"的状态，你平时跟她聊完之后心情怎么样？', 3, 23);
+
+  // 2 days ago
+  add('user', '参加了个行业分享活动，遇到一个做独立产品的人，聊了挺久。回来路上突然觉得自己现在的工作好像没那么有意思了。', 2, 20);
+  add('assistant', '他说了什么让你有这种感觉？', 2, 20);
+  add('user', '他说每天自己决定做什么，失败了也是自己负责。我就想到我现在其实大部分时间在执行别人的决定，感觉越想越空。', 2, 21);
+  add('assistant', '这种"执行别人决定"的感觉，是最近才有的，还是一直都这样？', 2, 21);
+
+  // yesterday
+  add('user', '在咖啡店写了一下午副业的 PRD，写到一半觉得太难落地了，关掉了。晚上做饭步骤搞错了，勉强吃下去。', 1, 21);
+  add('assistant', '副业 PRD 卡在哪里了？', 1, 21);
+  add('user', '主要是目标用户想不清楚，感觉越写越模糊，就没动力了。做饭是想犒劳自己，结果搞砸了，有点好笑。', 1, 22);
+  add('assistant', '目标用户模糊是不知道谁在用，还是你自己也不确定想解决什么问题？', 1, 22);
+
+  // today
+  add('user', '早会被点名说进度落后了，在组里挺尴尬的。', 0, 9);
+  add('assistant', '是真的落后了，还是排期本来就定得偏紧？', 0, 9);
+  add('user', '应该是真的落后了，但也有部分是需求临时变了导致的。', 0, 10);
+  add('assistant', '需求变了之后有没有跟上面同步过？还是默默自己扛着重新做？', 0, 10);
+
+  const observations = [
+    {
+      id: 1, kind: 'observation',
+      title: '放松有时候靠的是距离',
+      body: '和朋友吃火锅让 ta 真的松了口气，但和妈妈近一小时的电话却以应付收场。同样是社交，能量方向完全相反。这不是好坏的判断——只是 ta 在这两种关系里扮演的角色，大概差得很远。',
+      created_at: seedTime(0, 11),
+      feedback: null, user_reply: null,
+    },
+    {
+      id: 2, kind: 'question',
+      title: '无人打扰的时候，ta 是什么感觉',
+      body: 'WFH 专注写代码心情好、独自跑完五公里真正放松——这两件事都发生在"只有自己"的状态里。而 ta 在回程途中意识到工作里缺乏自主权、感觉越来越空。ta 有没有想过，那个"空"是什么时候开始盖过那种专注的感觉的？',
+      created_at: seedTime(0, 11),
+      feedback: null, user_reply: null,
+    },
+    {
+      id: 3, kind: 'observation',
+      title: '那个向往的状态，卡在了"谁在用"这里',
+      body: '遇到独立开发者之后，ta 当天就去咖啡店动手写 PRD，这个反应速度说明触动是真实的。但卡住的地方——目标用户定义模糊——其实不是执行力的问题。也许那个"向往的状态"背后，ta 还没想清楚自己真正想解决谁的问题，或者说，还没想清楚那个人是不是自己。',
+      created_at: seedTime(0, 11),
+      feedback: null, user_reply: null,
+    },
+    {
+      id: 4, kind: 'observation',
+      title: '身体在用它自己的方式说话',
+      body: '头疼、深夜难眠、刷手机到两点——这几件事挤在同一个窗口里发生。咖啡续命又反过来压缩睡眠，形成了一个小循环。ta 未必没意识到，只是这周能量缺口太多，身体的信号可能排到了很后面。',
+      created_at: seedTime(0, 11),
+      feedback: null, user_reply: null,
+    },
+    {
+      id: 5, kind: 'suggestion',
+      title: '憋屈在积累，出口却很窄',
+      body: '这周 ta 连续遇到三次"说了没用"的时刻——方向没对齐被推翻、架构意见未被采纳、周会上又被点名。每次 ta 都有自己的判断，但结果都是消化在肚子里。今天 ta 主动承认了落后，也看到了外部原因，这个清醒是有的——只是说出来的空间，好像一直不够。',
+      created_at: seedTime(0, 11),
+      feedback: null, user_reply: null,
+    },
+  ];
+
+  return {
+    messages,
+    observations,
+    profile: { display_name: 'nova' },
+  };
+}
+
+// ── State store ─────────────────────────────────────────────────
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  const fresh = buildSeed();
+  saveState(fresh);
+  return fresh;
+}
+function saveState(s) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch {}
+}
+function resetState() {
+  localStorage.removeItem(STORAGE_KEY);
+  location.hash = '#/';
+  location.reload();
+}
+
+let state = loadState();
+
+// ── Router ─────────────────────────────────────────────────
+function currentRoute() {
+  const h = location.hash || '#/';
+  return h.startsWith('#/feed') ? 'feed' : 'chat';
+}
+
+window.addEventListener('hashchange', render);
+
+// ── Helpers ─────────────────────────────────────────────────
+function el(tag, attrs, ...children) {
+  const e = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      if (k === 'class') e.className = attrs[k];
+      else if (k === 'style') e.setAttribute('style', attrs[k]);
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), attrs[k]);
+      else if (k === 'html') e.innerHTML = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    }
+  }
+  for (const c of children) {
+    if (c == null || c === false) continue;
+    if (Array.isArray(c)) c.forEach((x) => x != null && e.appendChild(typeof x === 'string' ? document.createTextNode(x) : x));
+    else if (typeof c === 'string') e.appendChild(document.createTextNode(c));
+    else e.appendChild(c);
+  }
+  return e;
+}
+
+function dayKey(ts) {
+  const d = new Date(ts);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function formatDateLabel(ts) {
+  const d = new Date(ts);
+  return (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日';
+}
+function formatTime(ts) {
+  const now = new Date();
+  const d = new Date(ts);
+  const tk = dayKey(Date.now());
+  const yk = dayKey(Date.now() - D);
+  const dk = dayKey(ts);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  if (dk === tk) return '今天 ' + hh + ':' + mm;
+  if (dk === yk) return '昨天 ' + hh + ':' + mm;
+  if (d.getFullYear() === now.getFullYear()) return (d.getMonth()+1) + ' 月 ' + d.getDate() + ' 日';
+  return d.getFullYear() + ' 年 ' + (d.getMonth()+1) + ' 月 ' + d.getDate() + ' 日';
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── NavBar ─────────────────────────────────────────────────
+function NavBar(route) {
+  return el('div', { class: 'nav' },
+    el('div', { class: 'nav-inner' },
+      el('div', { class: 'nav-brand' }, '观察 · Observer'),
+      el('div', { class: 'nav-tabs' },
+        el('a', {
+          class: 'nav-tab' + (route === 'chat' ? ' active' : ''),
+          href: '#/',
+        }, '记录'),
+        el('a', {
+          class: 'nav-tab' + (route === 'feed' ? ' active' : ''),
+          href: '#/feed',
+        }, '观察'),
+      ),
+      el('div', { class: 'demo-badge', title: '本页为静态 demo，AI 回复部分需部署后端运行 Claude' }, 'Demo'),
+    ),
+  );
+}
+
+// ── Chat Page ─────────────────────────────────────────────────
+let _earlierOpen = false;
+
+function ChatPage() {
+  const isFirst = state.messages.length === 1
+    && state.messages[0].role === 'assistant'
+    && !state._pendingUser;
+
+  if (isFirst) return WelcomePage();
+
+  const todayKey_ = dayKey(Date.now());
+  const yesterdayKey_ = dayKey(Date.now() - D);
+
+  const buckets = new Map();
+  for (const m of state.messages) {
+    const k = dayKey(m.created_at);
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(m);
+  }
+  const today = buckets.get(todayKey_) || [];
+  const earlier = [];
+  for (const [k, msgs] of buckets.entries()) {
+    if (k === todayKey_) continue;
+    const label = k === yesterdayKey_ ? '昨天' : formatDateLabel(msgs[0].created_at);
+    earlier.push({ key: k, label, messages: msgs });
+  }
+  earlier.sort((a,b) => a.key < b.key ? -1 : 1);
+
+  const totalEarlier = earlier.reduce((n,g) => n + g.messages.length, 0);
+
+  const page = el('div', { class: 'page' },
+    el('div', { class: 'chat-scroll', id: 'chat-scroll' },
+      el('div', { class: 'chat-inner' },
+        earlier.length > 0 && el('div', { class: 'earlier-section' },
+          el('div', { class: 'earlier-toggle' },
+            el('button', {
+              onclick: () => { _earlierOpen = !_earlierOpen; render(); }
+            },
+              el('span', { style: 'display:inline-block; transition:transform 0.2s; transform:' + (_earlierOpen ? 'rotate(180deg)' : 'none'), html:
+                '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+              }),
+              _earlierOpen
+                ? '收起之前的 ' + earlier.length + ' 天'
+                : '之前的 ' + earlier.length + ' 天 · ' + totalEarlier + ' 条'
+            )
+          ),
+          _earlierOpen && el('div', { class: 'earlier-content' },
+            ...earlier.map((g) =>
+              el('section', {},
+                el('div', { class: 'day-divider' },
+                  el('span', { class: 'line' }),
+                  el('span', { class: 'label' }, g.label),
+                  el('span', { class: 'line' }),
+                ),
+                el('div', { class: 'bubbles' },
+                  ...g.messages.map(Bubble)
+                )
+              )
+            )
+          )
+        ),
+        today.length > 0 && el('div', { class: 'bubbles' }, ...today.map(Bubble)),
+        state._pendingUser && el('div', { class: 'bubbles', style: 'margin-top:12px' },
+          Bubble({ role: 'user', content: state._pendingUser }),
+          el('div', { class: 'bubble-row' },
+            el('div', { class: 'bubble assistant' },
+              el('span', { class: 'typing' },
+                el('span'), el('span'), el('span')
+              )
+            )
+          )
+        ),
+      ),
+    ),
+    Composer(false),
+  );
+
+  // auto-scroll
+  setTimeout(() => {
+    const s = document.getElementById('chat-scroll');
+    if (s) s.scrollTo({ top: s.scrollHeight, behavior: 'smooth' });
+  }, 50);
+
+  return page;
+}
+
+function Bubble(m) {
+  return el('div', { class: 'bubble-row ' + m.role },
+    el('div', { class: 'bubble ' + m.role }, m.content)
+  );
+}
+
+function WelcomePage() {
+  return el('div', { class: 'page' },
+    el('div', { class: 'welcome-page' },
+      el('div', { class: 'welcome-in-1 orb' },
+        el('div', { class: 'orb-halo-wide' }),
+        el('div', { class: 'orb-halo' }),
+        el('div', { class: 'orb-core' }),
+      ),
+      el('p', { class: 'welcome-in-2 welcome-greeting' }, state.messages[0].content),
+      el('div', { class: 'welcome-in-3 welcome-composer' }, ComposerInner('怎么称呼你？')),
+    )
+  );
+}
+
+function Composer(isFirst) {
+  return el('div', { class: 'composer-wrap' },
+    el('div', { class: 'composer-inner' },
+      ComposerInner('今天发生了什么？'),
+      el('p', { class: 'hint' }, 'Enter 发送 · Shift+Enter 换行'),
+    ),
+  );
+}
+
+let _input = '';
+function ComposerInner(placeholder) {
+  const ta = el('textarea', {
+    placeholder,
+    rows: 1,
+    oninput: (e) => {
+      _input = e.target.value;
+      e.target.style.height = 'auto';
+      e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px';
+      const btn = e.target.parentElement.querySelector('.send-btn');
+      btn.disabled = !_input.trim() || !!state._pendingUser;
+    },
+    onkeydown: (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        sendMessage();
+      }
+    },
+  });
+  ta.value = _input;
+  setTimeout(() => ta.focus(), 50);
+  if (state._pendingUser) ta.disabled = true;
+
+  return el('div', { class: 'composer' },
+    ta,
+    el('button', {
+      class: 'send-btn',
+      disabled: !_input.trim() || !!state._pendingUser ? '' : null,
+      onclick: sendMessage,
+      'aria-label': '发送',
+      html: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M8 3L3.5 7.5M8 3L12.5 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    })
+  );
+}
+
+function sendMessage() {
+  const text = _input.trim();
+  if (!text || state._pendingUser) return;
+  state._pendingUser = text;
+  _input = '';
+  saveState(state);
+  render();
+
+  // Mock assistant reply after a short delay
+  setTimeout(() => {
+    const userMsg = {
+      id: nextMessageId(),
+      role: 'user',
+      content: state._pendingUser,
+      created_at: Date.now(),
+    };
+    const reply = pickMockReply(userMsg.content);
+    const assistantMsg = {
+      id: nextMessageId() + 1,
+      role: 'assistant',
+      content: reply,
+      created_at: Date.now() + 1,
+    };
+    state.messages.push(userMsg, assistantMsg);
+    state._pendingUser = null;
+    saveState(state);
+    render();
+  }, 1400);
+}
+
+function nextMessageId() {
+  let max = 0;
+  for (const m of state.messages) if (m.id > max) max = m.id;
+  return max + 1;
+}
+
+const MOCK_REPLIES = [
+  '（这是 demo · AI 回复部分未接入。线上版本会调 Claude，在这里温和地回应你，并悄悄把这件事记到 ta 的"生活事件"里。）',
+  '（这是 demo · Recorder 已经"看到"了你说的话。在真实版本里，它会用工具调用把这条记录的关键信息抽到 SQLite 里。）',
+  '（这是 demo · 想真实体验记录 + 观察的完整流程，请克隆 GitHub 仓库本地跑：需要 Anthropic API key。）',
+];
+function pickMockReply(_userText) {
+  return MOCK_REPLIES[Math.floor(Math.random() * MOCK_REPLIES.length)];
+}
+
+// ── Feed Page ─────────────────────────────────────────────────
+const KIND_LABEL = { observation: '观察到', suggestion: '也许', question: '想问' };
+
+function FeedPage() {
+  return el('div', { class: 'page' },
+    el('div', { class: 'feed-scroll' },
+      el('div', { class: 'feed-inner' },
+        el('div', { class: 'feed-header' },
+          el('div', {},
+            el('h1', {}, '观察'),
+            el('p', {}, 'AI 在远处看着你的生活，写下它注意到的事。'),
+          ),
+          el('button', {
+            class: 'refresh-btn',
+            onclick: () => showToast('Demo 模式：新观察需要部署后端才能生成。'),
+          },
+            el('span', { html: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2.5 8a5.5 5.5 0 0 1 9.5-3.8M13.5 8a5.5 5.5 0 0 1-9.5 3.8M12 1.5v3h-3M4 14.5v-3h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' }),
+            '让 ta 看看',
+          ),
+        ),
+        ...state.observations.map(ObservationCard),
+      ),
+    ),
+  );
+}
+
+const _replyOpen = new Set();
+const _replyDraft = new Map();
+
+function ObservationCard(obs) {
+  const isReplyOpen = _replyOpen.has(obs.id);
+
+  return el('article', { class: 'card' },
+    el('div', { class: 'card-meta' },
+      el('span', { class: 'card-kind ' + obs.kind }, KIND_LABEL[obs.kind]),
+      el('span', { class: 'card-time' }, '· ' + formatTime(obs.created_at)),
+    ),
+    el('h2', { class: 'card-title' }, obs.title),
+    el('p', { class: 'card-body' }, obs.body),
+
+    obs.user_reply && !isReplyOpen && el('div', { class: 'card-reply-shown' },
+      el('span', { class: 'label' }, '你'),
+      el('p', { class: 'text' }, obs.user_reply),
+    ),
+
+    isReplyOpen && ReplyPanel(obs),
+
+    el('div', { class: 'card-actions' },
+      el('button', {
+        class: 'reply-toggle',
+        onclick: () => {
+          if (_replyOpen.has(obs.id)) {
+            _replyOpen.delete(obs.id);
+            _replyDraft.delete(obs.id);
+          } else {
+            _replyOpen.add(obs.id);
+            _replyDraft.set(obs.id, obs.user_reply || '');
+          }
+          render();
+        }
+      }, obs.user_reply ? '编辑回复' : '回复'),
+      el('div', { class: 'feedback-row' },
+        FeedbackBtn(obs, 'agreed', '准'),
+        FeedbackBtn(obs, 'inaccurate', '不准'),
+      ),
+    ),
+  );
+}
+
+function ReplyPanel(obs) {
+  const ta = el('textarea', {
+    placeholder: '说说你的想法…',
+    rows: 2,
+    oninput: (e) => _replyDraft.set(obs.id, e.target.value),
+    onkeydown: (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        submitReply(obs);
+      }
+      if (e.key === 'Escape') {
+        _replyOpen.delete(obs.id);
+        _replyDraft.delete(obs.id);
+        render();
+      }
+    },
+  });
+  ta.value = _replyDraft.get(obs.id) || '';
+  setTimeout(() => ta.focus(), 50);
+
+  return el('div', { class: 'reply-panel' },
+    ta,
+    el('div', { class: 'reply-actions' },
+      el('button', {
+        class: 'btn-ghost',
+        onclick: () => { _replyOpen.delete(obs.id); _replyDraft.delete(obs.id); render(); },
+      }, '取消'),
+      el('button', {
+        class: 'btn-solid',
+        onclick: () => submitReply(obs),
+      }, '保存'),
+    ),
+  );
+}
+
+function submitReply(obs) {
+  const text = (_replyDraft.get(obs.id) || '').trim();
+  obs.user_reply = text || null;
+  _replyOpen.delete(obs.id);
+  _replyDraft.delete(obs.id);
+  saveState(state);
+  showToast(text ? '已保存你的回复' : '已清除回复');
+  render();
+}
+
+function FeedbackBtn(obs, kind, label) {
+  const active = obs.feedback === kind;
+  const dim = obs.feedback && obs.feedback !== kind;
+  return el('button', {
+    class: 'feedback-btn' + (active ? ' active' : '') + (dim ? ' dim' : ''),
+    'aria-pressed': active ? 'true' : 'false',
+    onclick: () => {
+      obs.feedback = obs.feedback === kind ? null : kind;
+      saveState(state);
+      if (obs.feedback === 'agreed') showToast('记下了，下次会延续这个视角');
+      else if (obs.feedback === 'inaccurate') showToast('记下了，下次会换个角度看');
+      else showToast('已取消标记');
+      render();
+    },
+  }, label);
+}
+
+// ── Render ─────────────────────────────────────────────────
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const route = currentRoute();
+  app.appendChild(NavBar(route));
+  app.appendChild(route === 'feed' ? FeedPage() : ChatPage());
+}
+
+document.getElementById('reset-link').addEventListener('click', () => {
+  if (confirm('重置 demo？这会清空你在 demo 里的所有改动，回到初始样板数据。')) {
+    resetState();
+  }
+});
+
+render();
+</script>
+</body>
+</html>

@@ -18,7 +18,7 @@ function t(daysAgo, hour) {
   return d.getTime() - daysAgo * D + hour * H;
 }
 
-db.exec("DELETE FROM messages; DELETE FROM life_events; DELETE FROM observations;");
+db.exec("DELETE FROM life_events; DELETE FROM observations; DELETE FROM messages;");
 
 const insertMsg = db.prepare("INSERT INTO messages (role, content, created_at) VALUES (?, ?, ?)");
 const insertEvt = db.prepare(
