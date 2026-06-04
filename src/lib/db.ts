@@ -146,6 +146,13 @@ function backfillVisitorIds(db: Database.Database, addedVisitorColumn: boolean) 
   db.prepare("UPDATE messages SET visitor_id = ? WHERE visitor_id IS NULL").run(LEGACY_VISITOR_ID);
   db.prepare("UPDATE life_events SET visitor_id = ? WHERE visitor_id IS NULL").run(LEGACY_VISITOR_ID);
   db.prepare("UPDATE observations SET visitor_id = ? WHERE visitor_id IS NULL").run(LEGACY_VISITOR_ID);
+
+  // Pre-isolation rows from anonymous visitors no longer belong to anyone.
+  // Hard-delete them so they can't linger in backups or surprise us later.
+  // life_events references messages(id), so delete events first.
+  db.prepare("DELETE FROM life_events WHERE visitor_id = ?").run(LEGACY_VISITOR_ID);
+  db.prepare("DELETE FROM observations WHERE visitor_id = ?").run(LEGACY_VISITOR_ID);
+  db.prepare("DELETE FROM messages WHERE visitor_id = ?").run(LEGACY_VISITOR_ID);
 }
 
 /**
