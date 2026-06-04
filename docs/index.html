@@ -230,7 +230,10 @@
   .orb-eyes {
     display: flex; gap: 7px;
     margin-top: -1px;
-    transition: transform 0.5s cubic-bezier(0.2, 0, 0.2, 1);
+    transition: transform 0.45s cubic-bezier(0.2, 0, 0.2, 1);
+  }
+  .mini-orb[data-glance] .orb-eyes {
+    transition: transform 0.18s cubic-bezier(0.3, 0, 0.6, 1);
   }
   .orb-eye {
     width: 2.5px; height: 10px; border-radius: 999px;
@@ -252,8 +255,8 @@
     50% { transform: scaleY(0.08); }
   }
   /* scroll glance — eyes shift left/right briefly */
-  .mini-orb[data-glance="right"] .orb-eyes { transform: translateX(2.5px); }
-  .mini-orb[data-glance="left"]  .orb-eyes { transform: translateX(-2.5px); }
+  .mini-orb[data-glance="right"] .orb-eyes { transform: translateX(5.5px); }
+  .mini-orb[data-glance="left"]  .orb-eyes { transform: translateX(-5.5px); }
   @media (max-width: 640px) {
     .mini-orb { top: 68px; left: 16px; }
   }
@@ -1166,7 +1169,7 @@ document.getElementById('reset-link').addEventListener('click', () => {
     clearTimeout(glanceTimer);
     glanceTimer = setTimeout(() => {
       orb.removeAttribute('data-glance');
-    }, 550);
+    }, 850);
   }, true);
 })();
 
