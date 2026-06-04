@@ -2,25 +2,170 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #fbfbfd;
+  --foreground: #1d1d1f;
+  --foreground-secondary: #6e6e73;
+  --foreground-tertiary: #86868b;
+  --separator: rgba(0, 0, 0, 0.08);
+  --separator-soft: rgba(0, 0, 0, 0.04);
+  --accent: #0071e3;
+  --accent-soft: #e8f1fd;
+  --bubble-user: #1d1d1f;
+  --bubble-assistant: #f2f2f3;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-canvas: var(--canvas);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-secondary: var(--foreground-secondary);
+  --color-tertiary: var(--foreground-tertiary);
+  --color-separator: var(--separator);
+  --color-separator-soft: var(--separator-soft);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-bubble-user: var(--bubble-user);
+  --color-bubble-assistant: var(--bubble-assistant);
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "PingFang SC", "Helvetica Neue", Helvetica, system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
+  background: var(--canvas);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--foreground);
+}
+
+/* --- First-time welcome: breathing orb that stands in for the Observer --- */
+.orb {
+  position: relative;
+  width: 88px;
+  height: 88px;
+}
+
+.orb-core {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0) 26%
+    ),
+    radial-gradient(circle at 60% 65%, #3a3a40 0%, #08080a 95%);
+  box-shadow:
+    0 10px 36px -6px rgba(0, 0, 0, 0.28),
+    inset 0 -10px 16px -6px rgba(0, 0, 0, 0.55),
+    inset 0 1px 2px rgba(255, 255, 255, 0.18);
+  animation: orb-drift 6s ease-in-out infinite;
+}
+
+.orb-halo,
+.orb-halo-wide {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.orb-halo {
+  inset: -22px;
+  background: radial-gradient(
+    circle,
+    rgba(20, 20, 22, 0.18) 0%,
+    rgba(20, 20, 22, 0) 62%
+  );
+  animation: orb-breathe 4s ease-in-out infinite;
+}
+
+.orb-halo-wide {
+  inset: -56px;
+  background: radial-gradient(
+    circle,
+    rgba(20, 20, 22, 0.1) 0%,
+    rgba(20, 20, 22, 0) 58%
+  );
+  animation: orb-breathe 5.5s ease-in-out infinite reverse;
+}
+
+@keyframes orb-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes orb-drift {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.015);
+  }
+}
+
+@keyframes welcome-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.welcome-in-1 {
+  animation: welcome-in 0.7s ease-out 0.1s both;
+}
+.welcome-in-2 {
+  animation: welcome-in 0.7s ease-out 0.4s both;
+}
+.welcome-in-3 {
+  animation: welcome-in 0.7s ease-out 0.7s both;
+}
+
+@keyframes welcome-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* Subtle scrollbar that fades into the page. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.16);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
 }
