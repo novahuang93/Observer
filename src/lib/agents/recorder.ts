@@ -83,26 +83,27 @@ const SET_USER_NAME_TOOL = {
 
 const RECENT_HISTORY_LIMIT = 30;
 
-export function ensureGreeting(): MessageRow | null {
+export function ensureGreeting(visitorId: string): MessageRow | null {
   const db = getDb();
   const existing = db
-    .prepare("SELECT COUNT(*) as c FROM messages")
-    .get() as { c: number };
+    .prepare("SELECT COUNT(*) as c FROM messages WHERE visitor_id = ?")
+    .get(visitorId) as { c: number };
   if (existing.c > 0) return null;
 
   const now = Date.now();
   const result = db
-    .prepare("INSERT INTO messages (role, content, created_at) VALUES (?, ?, ?)")
-    .run("assistant", GREETING_TEXT, now);
+    .prepare("INSERT INTO messages (visitor_id, role, content, created_at) VALUES (?, ?, ?, ?)")
+    .run(visitorId, "assistant", GREETING_TEXT, now);
   return {
     id: Number(result.lastInsertRowid),
+    visitor_id: visitorId,
     role: "assistant",
     content: GREETING_TEXT,
     created_at: now,
   };
 }
 
-export async function runRecorder(userMessage: string): Promise<{
+export async function runRecorder(visitorId: string, userMessage: string): Promise<{
   assistantText: string;
   assistantMessageId: number;
   eventsRecorded: number;
@@ -113,18 +114,18 @@ export async function runRecorder(userMessage: string): Promise<{
 
   // Persist user message first so events can reference it.
   const userInsert = db
-    .prepare("INSERT INTO messages (role, content, created_at) VALUES (?, ?, ?)")
-    .run("user", userMessage, now);
+    .prepare("INSERT INTO messages (visitor_id, role, content, created_at) VALUES (?, ?, ?, ?)")
+    .run(visitorId, "user", userMessage, now);
   const userMessageId = Number(userInsert.lastInsertRowid);
 
   // Load recent history for context (excluding the message we just inserted).
   const history = db
     .prepare(
       `SELECT id, role, content, created_at FROM messages
-       WHERE id < ?
+       WHERE id < ? AND visitor_id = ?
        ORDER BY id DESC LIMIT ?`,
     )
-    .all(userMessageId, RECENT_HISTORY_LIMIT) as MessageRow[];
+    .all(userMessageId, visitorId, RECENT_HISTORY_LIMIT) as MessageRow[];
 
   const messages = [
     ...history
@@ -133,7 +134,7 @@ export async function runRecorder(userMessage: string): Promise<{
     { role: "user" as const, content: userMessage },
   ];
 
-  const profile = getProfile(db);
+  const profile = getProfile(db, visitorId);
   const systemPrompt = buildSystemPrompt(profile?.display_name ?? null);
 
   const anthropic = getAnthropic();
@@ -183,22 +184,22 @@ export async function runRecorder(userMessage: string): Promise<{
   }
 
   if (nameCaptured) {
-    setUserName(db, nameCaptured);
+    setUserName(db, visitorId, nameCaptured);
   }
 
   const assistantInsert = db
-    .prepare("INSERT INTO messages (role, content, created_at) VALUES (?, ?, ?)")
-    .run("assistant", assistantText, Date.now());
+    .prepare("INSERT INTO messages (visitor_id, role, content, created_at) VALUES (?, ?, ?, ?)")
+    .run(visitorId, "assistant", assistantText, Date.now());
   const assistantMessageId = Number(assistantInsert.lastInsertRowid);
 
   // Persist events linked to the user message.
   const insertEvent = db.prepare(
-    `INSERT INTO life_events (category, content, mood, occurred_at, source_message_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO life_events (visitor_id, category, content, mood, occurred_at, source_message_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   );
   const eventNow = Date.now();
   for (const ev of events) {
-    insertEvent.run(ev.category, ev.content, ev.mood, eventNow, userMessageId, eventNow);
+    insertEvent.run(visitorId, ev.category, ev.content, ev.mood, eventNow, userMessageId, eventNow);
   }
 
   return {

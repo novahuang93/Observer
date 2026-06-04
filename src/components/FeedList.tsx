@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { MiniOrb } from "./MiniOrb";
 
@@ -240,10 +241,9 @@ function Card({
   // When reply panel opens, focus textarea
   useEffect(() => {
     if (replyOpen) {
-      setReplyText(obs.user_reply ?? "");
       setTimeout(() => textareaRef.current?.focus(), 50);
     }
-  }, [replyOpen, obs.user_reply]);
+  }, [replyOpen]);
 
   async function setFeedback(next: Feedback) {
     if (submitting) return;
@@ -284,6 +284,15 @@ function Card({
     } finally {
       setReplySaving(false);
     }
+  }
+
+  function toggleReply() {
+    if (replyOpen) {
+      setReplyOpen(false);
+      return;
+    }
+    setReplyText(obs.user_reply ?? "");
+    setReplyOpen(true);
   }
 
   return (
@@ -349,7 +358,7 @@ function Card({
       <div className="mt-5 pt-4 border-t border-separator-soft flex items-center justify-between gap-1">
         {/* Reply toggle */}
         <button
-          onClick={() => setReplyOpen((v) => !v)}
+          onClick={toggleReply}
           className="h-7 px-3 rounded-full text-[12px] text-tertiary hover:text-secondary hover:bg-black/[0.04] transition-colors"
         >
           {obs.user_reply ? "编辑回复" : "回复"}
@@ -407,7 +416,7 @@ function EmptyState({ onRefresh, refreshing }: { onRefresh: () => void; refreshi
         这里还空着。
         <br />
         先去
-        <a href="/" className="text-accent"> 记录 </a>
+        <Link href="/" className="text-accent"> 记录 </Link>
         几件最近发生的事，再回来让 ta 看看。
       </p>
       <button

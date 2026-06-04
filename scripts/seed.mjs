@@ -11,6 +11,7 @@ const db = new Database(join(__dirname, "../data/observer.db"));
 
 const D = 86_400_000;
 const H = 3_600_000;
+const DEMO_VISITOR_ID = "demo";
 
 function t(daysAgo, hour) {
   const d = new Date();
@@ -18,18 +19,39 @@ function t(daysAgo, hour) {
   return d.getTime() - daysAgo * D + hour * H;
 }
 
-db.exec("DELETE FROM life_events; DELETE FROM observations; DELETE FROM messages;");
+function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (cols.some((c) => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
 
-const insertMsg = db.prepare("INSERT INTO messages (role, content, created_at) VALUES (?, ?, ?)");
+ensureColumn("messages", "visitor_id", "TEXT");
+ensureColumn("life_events", "visitor_id", "TEXT");
+ensureColumn("observations", "visitor_id", "TEXT");
+db.exec(`
+  CREATE TABLE IF NOT EXISTS observation_interactions (
+    visitor_id TEXT NOT NULL,
+    observation_id INTEGER NOT NULL REFERENCES observations(id) ON DELETE CASCADE,
+    feedback TEXT CHECK (feedback IN ('agreed','inaccurate')),
+    feedback_at INTEGER,
+    user_reply TEXT,
+    user_reply_at INTEGER,
+    PRIMARY KEY (visitor_id, observation_id)
+  );
+`);
+
+db.exec("DELETE FROM observation_interactions; DELETE FROM life_events; DELETE FROM observations; DELETE FROM messages;");
+
+const insertMsg = db.prepare("INSERT INTO messages (visitor_id, role, content, created_at) VALUES (?, ?, ?, ?)");
 const insertEvt = db.prepare(
-  "INSERT INTO life_events (category, content, mood, occurred_at, source_message_id, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+  "INSERT INTO life_events (visitor_id, category, content, mood, occurred_at, source_message_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
 );
 
 function msg(role, content, daysAgo, hour) {
-  return Number(insertMsg.run(role, content, t(daysAgo, hour)).lastInsertRowid);
+  return Number(insertMsg.run(DEMO_VISITOR_ID, role, content, t(daysAgo, hour)).lastInsertRowid);
 }
 function evt(category, content, mood, daysAgo, hour, srcId) {
-  insertEvt.run(category, content, mood, t(daysAgo, hour), srcId, t(daysAgo, hour));
+  insertEvt.run(DEMO_VISITOR_ID, category, content, mood, t(daysAgo, hour), srcId, t(daysAgo, hour));
 }
 
 // greeting

@@ -1,5 +1,6 @@
 import { getAnthropic, MODEL } from "@/lib/anthropic";
 import {
+  DEMO_VISITOR_ID,
   getDb,
   getProfile,
   type LifeEventRow,
@@ -67,7 +68,7 @@ export type ObservationInput = {
   related_event_ids: number[];
 };
 
-export async function runObserver(): Promise<{
+export async function runObserver(visitorId: string): Promise<{
   created: number;
   observations: ObservationRow[];
   hadEnoughData: boolean;
@@ -80,11 +81,11 @@ export async function runObserver(): Promise<{
     .prepare(
       `SELECT id, category, content, mood, occurred_at
        FROM life_events
-       WHERE occurred_at >= ?
+       WHERE visitor_id = ? AND occurred_at >= ?
        ORDER BY occurred_at DESC
        LIMIT ?`,
     )
-    .all(since, RECENT_EVENT_LIMIT) as Pick<
+    .all(visitorId, since, RECENT_EVENT_LIMIT) as Pick<
     LifeEventRow,
     "id" | "category" | "content" | "mood" | "occurred_at"
   >[];
@@ -95,14 +96,27 @@ export async function runObserver(): Promise<{
 
   const pastObservations = db
     .prepare(
-      `SELECT id, kind, title, body, related_event_ids, created_at, feedback, feedback_at
-       FROM observations
-       ORDER BY id DESC
+      `SELECT
+         o.id,
+         o.kind,
+         o.title,
+         o.body,
+         o.related_event_ids,
+         o.created_at,
+         i.feedback,
+         i.feedback_at,
+         i.user_reply,
+         i.user_reply_at
+       FROM observations o
+       LEFT JOIN observation_interactions i
+         ON i.observation_id = o.id AND i.visitor_id = ?
+       WHERE o.visitor_id IN (?, ?)
+       ORDER BY o.id DESC
        LIMIT ?`,
     )
-    .all(PAST_OBSERVATION_LIMIT) as ObservationRow[];
+    .all(visitorId, DEMO_VISITOR_ID, visitorId, PAST_OBSERVATION_LIMIT) as ObservationRow[];
 
-  const profile = getProfile(db);
+  const profile = getProfile(db, visitorId);
 
   const eventsBlock = recentEvents
     .slice()
@@ -124,7 +138,8 @@ export async function runObserver(): Promise<{
                 : o.feedback === "inaccurate"
                   ? " [👎 ta 觉得不准]"
                   : "";
-            return `· (${o.kind}) ${o.title} — ${o.body}${tag}`;
+            const reply = o.user_reply ? ` [用户回复: "${o.user_reply}"]` : "";
+            return `· (${o.kind}) ${o.title} — ${o.body}${tag}${reply}`;
           })
           .join("\n");
 
@@ -170,13 +185,14 @@ ${pastBlock}
   }
 
   const insert = db.prepare(
-    `INSERT INTO observations (kind, title, body, related_event_ids, created_at)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO observations (visitor_id, kind, title, body, related_event_ids, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
   );
   const createdAt = Date.now();
   const insertedIds: number[] = [];
   for (const o of observations) {
     const result = insert.run(
+      visitorId,
       o.kind,
       o.title,
       o.body,

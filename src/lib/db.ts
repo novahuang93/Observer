@@ -6,6 +6,13 @@ const dataDir = path.join(process.cwd(), "data");
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const dbPath = path.join(dataDir, "observer.db");
+export const DEMO_VISITOR_ID = "demo";
+const LEGACY_VISITOR_ID = "legacy";
+const SEED_MESSAGE_COUNT = 29;
+const SEED_EVENT_COUNT = 17;
+const SEED_OBSERVATION_COUNT = 5;
+const SEED_GREETING_TEXT =
+  "嗨，我们刚认识。\n\n我会在这儿安静地陪你记录日常——开心的、烦的、随手一想的——都行，不用整理。\n\n先问一下，我怎么称呼你？";
 
 // Cache across HMR reloads so we don't keep opening new handles in dev.
 const globalForDb = globalThis as unknown as { __observerDb?: Database.Database };
@@ -15,6 +22,7 @@ function init(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      visitor_id TEXT NOT NULL DEFAULT '${DEMO_VISITOR_ID}',
       role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
       content TEXT NOT NULL,
       created_at INTEGER NOT NULL
@@ -22,6 +30,7 @@ function init(db: Database.Database) {
 
     CREATE TABLE IF NOT EXISTS life_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      visitor_id TEXT NOT NULL DEFAULT '${DEMO_VISITOR_ID}',
       category TEXT NOT NULL,
       content TEXT NOT NULL,
       mood TEXT,
@@ -32,6 +41,7 @@ function init(db: Database.Database) {
 
     CREATE TABLE IF NOT EXISTS observations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      visitor_id TEXT NOT NULL DEFAULT '${DEMO_VISITOR_ID}',
       kind TEXT NOT NULL CHECK (kind IN ('observation', 'suggestion', 'question')),
       title TEXT NOT NULL,
       body TEXT NOT NULL,
@@ -46,10 +56,37 @@ function init(db: Database.Database) {
       updated_at INTEGER NOT NULL
     );
 
-    CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
-    CREATE INDEX IF NOT EXISTS idx_events_occurred ON life_events(occurred_at);
-    CREATE INDEX IF NOT EXISTS idx_observations_created ON observations(created_at);
+    CREATE TABLE IF NOT EXISTS visitor_profiles (
+      visitor_id TEXT PRIMARY KEY,
+      display_name TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS observation_interactions (
+      visitor_id TEXT NOT NULL,
+      observation_id INTEGER NOT NULL REFERENCES observations(id) ON DELETE CASCADE,
+      feedback TEXT CHECK (feedback IN ('agreed','inaccurate')),
+      feedback_at INTEGER,
+      user_reply TEXT,
+      user_reply_at INTEGER,
+      PRIMARY KEY (visitor_id, observation_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_interactions_observation ON observation_interactions(observation_id);
   `);
+
+  const addedMessageVisitorColumn = ensureColumn(db, "messages", "visitor_id", "TEXT");
+  const addedEventVisitorColumn = ensureColumn(db, "life_events", "visitor_id", "TEXT");
+  const addedObservationVisitorColumn = ensureColumn(db, "observations", "visitor_id", "TEXT");
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_messages_visitor_created ON messages(visitor_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_events_visitor_occurred ON life_events(visitor_id, occurred_at);
+    CREATE INDEX IF NOT EXISTS idx_observations_visitor_created ON observations(visitor_id, created_at);
+  `);
+  const addedVisitorColumn =
+    addedMessageVisitorColumn || addedEventVisitorColumn || addedObservationVisitorColumn;
+  backfillVisitorIds(db, addedVisitorColumn);
 
   // Additive migration: feedback columns on observations.
   const obsCols = db
@@ -73,6 +110,51 @@ function init(db: Database.Database) {
   ensureSeed(db);
 }
 
+function ensureColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  definition: string,
+): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (cols.some((c) => c.name === column)) return false;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  return true;
+}
+
+function backfillVisitorIds(db: Database.Database, addedVisitorColumn: boolean) {
+  if (!addedVisitorColumn) {
+    db.prepare("UPDATE messages SET visitor_id = ? WHERE visitor_id IS NULL").run(LEGACY_VISITOR_ID);
+    db.prepare("UPDATE life_events SET visitor_id = ? WHERE visitor_id IS NULL").run(LEGACY_VISITOR_ID);
+    db.prepare("UPDATE observations SET visitor_id = ? WHERE visitor_id IS NULL").run(LEGACY_VISITOR_ID);
+    return;
+  }
+
+  const first = db.prepare("SELECT content FROM messages WHERE id = 1").get() as
+    | { content: string }
+    | undefined;
+  const hasOriginalSeed = first?.content === SEED_GREETING_TEXT;
+
+  if (hasOriginalSeed) {
+    db.prepare("UPDATE messages SET visitor_id = ? WHERE visitor_id IS NULL AND id <= ?").run(
+      DEMO_VISITOR_ID,
+      SEED_MESSAGE_COUNT,
+    );
+    db.prepare("UPDATE life_events SET visitor_id = ? WHERE visitor_id IS NULL AND id <= ?").run(
+      DEMO_VISITOR_ID,
+      SEED_EVENT_COUNT,
+    );
+    db.prepare("UPDATE observations SET visitor_id = ? WHERE visitor_id IS NULL AND id <= ?").run(
+      DEMO_VISITOR_ID,
+      SEED_OBSERVATION_COUNT,
+    );
+  }
+
+  db.prepare("UPDATE messages SET visitor_id = ? WHERE visitor_id IS NULL").run(LEGACY_VISITOR_ID);
+  db.prepare("UPDATE life_events SET visitor_id = ? WHERE visitor_id IS NULL").run(LEGACY_VISITOR_ID);
+  db.prepare("UPDATE observations SET visitor_id = ? WHERE visitor_id IS NULL").run(LEGACY_VISITOR_ID);
+}
+
 /**
  * On first run (no messages yet), populate the demo with a coherent
  * 7-day slice of fake life: chat history, extracted life events, and
@@ -82,7 +164,11 @@ function init(db: Database.Database) {
  * appends after the seed and is never wiped.
  */
 function ensureSeed(db: Database.Database) {
-  const count = (db.prepare("SELECT COUNT(*) as c FROM messages").get() as { c: number }).c;
+  const count = (
+    db.prepare("SELECT COUNT(*) as c FROM messages WHERE visitor_id = ?").get(DEMO_VISITOR_ID) as {
+      c: number;
+    }
+  ).c;
   if (count > 0) return;
 
   const D = 86_400_000;
@@ -93,13 +179,13 @@ function ensureSeed(db: Database.Database) {
   const t = (daysAgo: number, hour: number) => base - daysAgo * D + hour * H;
 
   const insertMsg = db.prepare(
-    "INSERT INTO messages (role, content, created_at) VALUES (?, ?, ?)",
+    "INSERT INTO messages (visitor_id, role, content, created_at) VALUES (?, ?, ?, ?)",
   );
   const insertEvt = db.prepare(
-    "INSERT INTO life_events (category, content, mood, occurred_at, source_message_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO life_events (visitor_id, category, content, mood, occurred_at, source_message_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
   );
   const insertObs = db.prepare(
-    "INSERT INTO observations (kind, title, body, related_event_ids, created_at) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO observations (visitor_id, kind, title, body, related_event_ids, created_at) VALUES (?, ?, ?, ?, ?, ?)",
   );
   const upsertProfile = db.prepare(
     `INSERT INTO user_profile (id, display_name, created_at, updated_at)
@@ -112,16 +198,14 @@ function ensureSeed(db: Database.Database) {
     upsertProfile.run("nova", now, now);
 
     const msg = (role: "user" | "assistant", content: string, daysAgo: number, hour: number): number =>
-      Number(insertMsg.run(role, content, t(daysAgo, hour)).lastInsertRowid);
+      Number(insertMsg.run(DEMO_VISITOR_ID, role, content, t(daysAgo, hour)).lastInsertRowid);
     const evt = (category: string, content: string, mood: string, daysAgo: number, hour: number, srcId: number) =>
-      insertEvt.run(category, content, mood, t(daysAgo, hour), srcId, t(daysAgo, hour));
+      insertEvt.run(DEMO_VISITOR_ID, category, content, mood, t(daysAgo, hour), srcId, t(daysAgo, hour));
     const obs = (kind: string, title: string, body: string, ids: number[], daysAgo: number, hour: number) =>
-      insertObs.run(kind, title, body, JSON.stringify(ids), t(daysAgo, hour));
+      insertObs.run(DEMO_VISITOR_ID, kind, title, body, JSON.stringify(ids), t(daysAgo, hour));
 
     // Greeting (7 days ago)
-    msg("assistant",
-      "嗨，我们刚认识。\n\n我会在这儿安静地陪你记录日常——开心的、烦的、随手一想的——都行，不用整理。\n\n先问一下，我怎么称呼你？",
-      7, 9);
+    msg("assistant", SEED_GREETING_TEXT, 7, 9);
 
     // 6 days ago
     const m1 = msg("user", "今天开了一整天的需求评审，最后产品说所有方案要重新来过。感觉挺崩的，白干了。", 6, 18);
@@ -202,41 +286,62 @@ function ensureSeed(db: Database.Database) {
   console.log("[db] seeded sample data (7 days of chat + 15 events + 5 observations)");
 }
 
-export function getProfile(db: Database.Database): UserProfileRow | null {
+export function getProfile(db: Database.Database, visitorId: string): UserProfileRow | null {
   return (db
     .prepare(
-      "SELECT id, display_name, created_at, updated_at FROM user_profile WHERE id = 1",
+      "SELECT visitor_id, display_name, created_at, updated_at FROM visitor_profiles WHERE visitor_id = ?",
     )
-    .get() as UserProfileRow | undefined) ?? null;
+    .get(visitorId) as UserProfileRow | undefined) ?? null;
 }
 
-export function setUserName(db: Database.Database, name: string): void {
+export function setUserName(db: Database.Database, visitorId: string, name: string): void {
   const now = Date.now();
   db.prepare(
-    `INSERT INTO user_profile (id, display_name, created_at, updated_at)
-     VALUES (1, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name, updated_at = excluded.updated_at`,
-  ).run(name, now, now);
+    `INSERT INTO visitor_profiles (visitor_id, display_name, created_at, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(visitor_id) DO UPDATE SET display_name = excluded.display_name, updated_at = excluded.updated_at`,
+  ).run(visitorId, name, now, now);
 }
 
 export function setObservationFeedback(
   db: Database.Database,
+  visitorId: string,
   id: number,
   feedback: "agreed" | "inaccurate" | null,
 ): void {
   db.prepare(
-    "UPDATE observations SET feedback = ?, feedback_at = ? WHERE id = ?",
-  ).run(feedback, feedback ? Date.now() : null, id);
+    `INSERT INTO observation_interactions (visitor_id, observation_id, feedback, feedback_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(visitor_id, observation_id)
+     DO UPDATE SET feedback = excluded.feedback, feedback_at = excluded.feedback_at`,
+  ).run(visitorId, id, feedback, feedback ? Date.now() : null);
 }
 
 export function setObservationReply(
   db: Database.Database,
+  visitorId: string,
   id: number,
   reply: string | null,
 ): void {
   db.prepare(
-    "UPDATE observations SET user_reply = ?, user_reply_at = ? WHERE id = ?",
-  ).run(reply, reply ? Date.now() : null, id);
+    `INSERT INTO observation_interactions (visitor_id, observation_id, user_reply, user_reply_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(visitor_id, observation_id)
+     DO UPDATE SET user_reply = excluded.user_reply, user_reply_at = excluded.user_reply_at`,
+  ).run(visitorId, id, reply, reply ? Date.now() : null);
+}
+
+export function observationVisibleToVisitor(
+  db: Database.Database,
+  id: number,
+  visitorId: string,
+): boolean {
+  const row = db
+    .prepare(
+      "SELECT 1 FROM observations WHERE id = ? AND visitor_id IN (?, ?) LIMIT 1",
+    )
+    .get(id, DEMO_VISITOR_ID, visitorId);
+  return Boolean(row);
 }
 
 export function getDb(): Database.Database {
@@ -250,6 +355,7 @@ export function getDb(): Database.Database {
 
 export type MessageRow = {
   id: number;
+  visitor_id: string;
   role: "user" | "assistant";
   content: string;
   created_at: number;
@@ -257,6 +363,7 @@ export type MessageRow = {
 
 export type LifeEventRow = {
   id: number;
+  visitor_id: string;
   category: string;
   content: string;
   mood: string | null;
@@ -267,6 +374,7 @@ export type LifeEventRow = {
 
 export type ObservationRow = {
   id: number;
+  visitor_id: string;
   kind: "observation" | "suggestion" | "question";
   title: string;
   body: string;
@@ -279,7 +387,7 @@ export type ObservationRow = {
 };
 
 export type UserProfileRow = {
-  id: number;
+  visitor_id: string;
   display_name: string | null;
   created_at: number;
   updated_at: number;
