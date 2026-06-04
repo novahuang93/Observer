@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { MiniOrb } from "./MiniOrb";
 
 type Message = {
   id: number;
@@ -171,6 +172,7 @@ export function ChatThread() {
   if (isFirstTime) {
     return (
       <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 pb-12">
+        <MiniOrb variant="dark" />
         <div className="welcome-in-1 orb" aria-hidden="true">
           <div className="orb-halo-wide" />
           <div className="orb-halo" />
@@ -213,6 +215,7 @@ export function ChatThread() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
+      <MiniOrb variant="dark" />
       <div
         ref={scrollRef}
         className="flex-1 min-h-0 overflow-y-auto"

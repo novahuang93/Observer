@@ -153,6 +153,172 @@ body {
   }
 }
 
+/* --- Mini orb: the Observer's quiet presence in the top-left --- */
+.mini-orb {
+  position: fixed;
+  top: 72px;
+  left: 32px;
+  width: 40px;
+  height: 40px;
+  z-index: 30;
+  pointer-events: none;
+}
+.mini-orb-core {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(90, 90, 96, 0.55) 0%, rgba(90, 90, 96, 0) 30%),
+    radial-gradient(circle at 60% 65%, #1a1a1c 0%, #08080a 95%);
+  box-shadow:
+    0 6px 16px -3px rgba(0, 0, 0, 0.32),
+    inset 0 -4px 8px -2px rgba(0, 0, 0, 0.55),
+    inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  animation: orb-drift 5.5s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mini-orb-halo {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(20, 20, 22, 0.22) 0%, rgba(20, 20, 22, 0) 62%);
+  animation: orb-breathe 4.2s ease-in-out infinite;
+}
+.orb-eyes {
+  display: flex;
+  gap: 7px;
+  margin-top: -1px;
+  transition: transform 0.45s cubic-bezier(0.2, 0, 0.2, 1);
+}
+.mini-orb[data-glance] .orb-eyes {
+  transition: transform 0.18s cubic-bezier(0.3, 0, 0.6, 1);
+}
+.orb-eye {
+  width: 2.5px;
+  height: 10px;
+  border-radius: 999px;
+  background: #f5f5f7;
+  transform-origin: center;
+  animation: orb-blink 3s ease-in-out infinite;
+}
+@keyframes orb-blink {
+  0%, 85%, 100% { transform: scaleY(1); }
+  90%, 95% { transform: scaleY(0.08); }
+  92% { transform: scaleY(1); }
+}
+.mini-orb.blinking .orb-eye {
+  animation: orb-blink-once 0.24s ease-out;
+}
+@keyframes orb-blink-once {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.08); }
+}
+.mini-orb[data-glance="right"] .orb-eyes { transform: translateX(5.5px); }
+.mini-orb[data-glance="left"] .orb-eyes { transform: translateX(-5.5px); }
+
+/* Light variant — the Observer Agent's pale twin */
+.mini-orb.light .mini-orb-core {
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 30%),
+    radial-gradient(circle at 60% 65%, #ececef 0%, #c8c8cc 95%);
+  box-shadow:
+    0 6px 16px -3px rgba(0, 0, 0, 0.14),
+    inset 0 -4px 8px -2px rgba(0, 0, 0, 0.1),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+.mini-orb.light .mini-orb-halo {
+  background: radial-gradient(circle, rgba(120, 120, 128, 0.16) 0%, rgba(120, 120, 128, 0) 62%);
+}
+.mini-orb.light .orb-eye {
+  background: #2a2a2c;
+}
+.mini-orb.light .orb-thought {
+  background: #2a2a2c;
+  color: #f5f5f7;
+}
+.mini-orb.light .orb-thought::before,
+.mini-orb.light .orb-thought::after {
+  background: #2a2a2c;
+}
+
+/* Thought bubble — drifts up at orb's right side */
+.orb-thought {
+  position: absolute;
+  left: 100%;
+  top: -6px;
+  margin-left: 16px;
+  background: #f6f6f8;
+  color: #1d1d1f;
+  padding: 7px 13px;
+  border-radius: 16px 16px 16px 6px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.14);
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: left center;
+}
+.orb-thought::before,
+.orb-thought::after {
+  content: "";
+  position: absolute;
+  background: #f6f6f8;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.orb-thought::before {
+  left: -7px;
+  top: 14px;
+  width: 8px;
+  height: 8px;
+}
+.orb-thought::after {
+  left: -14px;
+  top: 20px;
+  width: 4px;
+  height: 4px;
+}
+.orb-thought.show {
+  animation: thought-float 5s cubic-bezier(0.2, 0, 0.2, 1);
+}
+@keyframes thought-float {
+  0%   { opacity: 0; transform: translate(-4px, 6px) scale(0.9); }
+  18%  { opacity: 1; transform: translate(0, 0) scale(1); }
+  78%  { opacity: 1; transform: translate(0, -2px) scale(1); }
+  100% { opacity: 0; transform: translate(2px, -8px) scale(0.95); }
+}
+
+@media (max-width: 640px) {
+  .mini-orb {
+    top: 68px;
+    left: 16px;
+  }
+  .orb-thought {
+    font-size: 11.5px;
+    padding: 6px 11px;
+    margin-left: 12px;
+  }
+}
+
+/* --- Event timeline on the feed page --- */
+.tl-event-bar.cat-work    { background: #5b8def; }
+.tl-event-bar.cat-social  { background: #44a47c; }
+.tl-event-bar.cat-health  { background: #d68a3c; }
+.tl-event-bar.cat-emotion { background: #9876d6; }
+.tl-event-bar.cat-hobby   { background: #c95a5a; }
+.tl-event-bar.cat-daily   { background: #8e8e93; }
+
+.tl-cat.cat-work    { color: #4271d4; }
+.tl-cat.cat-social  { color: #2e8a64; }
+.tl-cat.cat-health  { color: #b8722a; }
+.tl-cat.cat-emotion { color: #7e5cc1; }
+.tl-cat.cat-hobby   { color: #b04848; }
+.tl-cat.cat-daily   { color: #6e6e73; }
+
 /* Subtle scrollbar that fades into the page. */
 * {
   scrollbar-width: thin;
