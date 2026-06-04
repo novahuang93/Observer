@@ -258,6 +258,30 @@
   .mini-orb[data-glance="right"] .orb-eyes { transform: translateX(5.5px); }
   .mini-orb[data-glance="left"]  .orb-eyes { transform: translateX(-5.5px); }
 
+  /* light variant — the Observer Agent's twin, pale */
+  .mini-orb.light .mini-orb-core {
+    background:
+      radial-gradient(circle at 32% 26%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 30%),
+      radial-gradient(circle at 60% 65%, #ececef 0%, #c8c8cc 95%);
+    box-shadow:
+      0 6px 16px -3px rgba(0,0,0,0.14),
+      inset 0 -4px 8px -2px rgba(0,0,0,0.10),
+      inset 0 1px 1px rgba(255,255,255,0.6);
+  }
+  .mini-orb.light .mini-orb-halo {
+    background: radial-gradient(circle, rgba(120,120,128,0.16) 0%, rgba(120,120,128,0) 62%);
+  }
+  .mini-orb.light .orb-eye { background: #2a2a2c; }
+  /* light orb's thought bubble: dark fill so it contrasts with the pale orb */
+  .mini-orb.light .orb-thought {
+    background: #2a2a2c;
+    color: #f5f5f7;
+  }
+  .mini-orb.light .orb-thought::before,
+  .mini-orb.light .orb-thought::after {
+    background: #2a2a2c;
+  }
+
   /* thought bubble — drifts up at orb's right side */
   .orb-thought {
     position: absolute;
@@ -824,8 +848,11 @@ function Bubble(m) {
   );
 }
 
-function MiniOrb() {
-  return el('div', { class: 'mini-orb', 'aria-hidden': 'true' },
+function MiniOrb(variant) {
+  return el('div', {
+    class: 'mini-orb' + (variant === 'light' ? ' light' : ''),
+    'aria-hidden': 'true',
+  },
     el('div', { class: 'mini-orb-halo' }),
     el('div', { class: 'mini-orb-core' },
       el('div', { class: 'orb-eyes' },
@@ -961,6 +988,7 @@ let _timelineOpen = false;
 
 function FeedPage() {
   return el('div', { class: 'page' },
+    MiniOrb('light'),
     el('div', { class: 'feed-scroll' },
       el('div', { class: 'feed-inner' },
         el('div', { class: 'feed-header' },
@@ -1200,7 +1228,7 @@ function scheduleThought(initialDelay) {
   const delay = initialDelay != null ? initialDelay : 8000; // 5s show + 3s gap
   setTimeout(() => {
     const orb = document.querySelector('.mini-orb');
-    if (orb && document.visibilityState === 'visible' && currentRoute() === 'chat') {
+    if (orb && document.visibilityState === 'visible') {
       // Remove old bubble if any (avoid stacking)
       const old = orb.querySelector('.orb-thought');
       if (old) old.remove();
