@@ -49,13 +49,6 @@ function init(db: Database.Database) {
       created_at INTEGER NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS user_profile (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      display_name TEXT,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-
     CREATE TABLE IF NOT EXISTS visitor_profiles (
       visitor_id TEXT PRIMARY KEY,
       display_name TEXT,
@@ -187,16 +180,8 @@ function ensureSeed(db: Database.Database) {
   const insertObs = db.prepare(
     "INSERT INTO observations (visitor_id, kind, title, body, related_event_ids, created_at) VALUES (?, ?, ?, ?, ?, ?)",
   );
-  const upsertProfile = db.prepare(
-    `INSERT INTO user_profile (id, display_name, created_at, updated_at)
-     VALUES (1, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name, updated_at = excluded.updated_at`,
-  );
 
   const seedTx = db.transaction(() => {
-    const now = Date.now();
-    upsertProfile.run("nova", now, now);
-
     const msg = (role: "user" | "assistant", content: string, daysAgo: number, hour: number): number =>
       Number(insertMsg.run(DEMO_VISITOR_ID, role, content, t(daysAgo, hour)).lastInsertRowid);
     const evt = (category: string, content: string, mood: string, daysAgo: number, hour: number, srcId: number) =>

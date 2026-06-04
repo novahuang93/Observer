@@ -1,12 +1,6 @@
 import { getAnthropic, MODEL } from "@/lib/anthropic";
 import { getDb, getProfile, setUserName, type MessageRow } from "@/lib/db";
 
-export const GREETING_TEXT = `嗨，我们刚认识。
-
-我会在这儿安静地陪你记录每天发生的事——开心的、烦的、累的、突然想起的，都可以告诉我，我不点评、不建议。点评是另一个 AI（在「观察」里）的活。
-
-先问一下，我怎么称呼你？`;
-
 function buildSystemPrompt(displayName: string | null): string {
   const nameLine = displayName
     ? `用户告诉过你 ta 叫"${displayName}"。你可以在合适的时候自然地用这个称呼，但不要每句话都用。`
@@ -82,26 +76,6 @@ const SET_USER_NAME_TOOL = {
 };
 
 const RECENT_HISTORY_LIMIT = 30;
-
-export function ensureGreeting(visitorId: string): MessageRow | null {
-  const db = getDb();
-  const existing = db
-    .prepare("SELECT COUNT(*) as c FROM messages WHERE visitor_id = ?")
-    .get(visitorId) as { c: number };
-  if (existing.c > 0) return null;
-
-  const now = Date.now();
-  const result = db
-    .prepare("INSERT INTO messages (visitor_id, role, content, created_at) VALUES (?, ?, ?, ?)")
-    .run(visitorId, "assistant", GREETING_TEXT, now);
-  return {
-    id: Number(result.lastInsertRowid),
-    visitor_id: visitorId,
-    role: "assistant",
-    content: GREETING_TEXT,
-    created_at: now,
-  };
-}
 
 export async function runRecorder(visitorId: string, userMessage: string): Promise<{
   assistantText: string;
