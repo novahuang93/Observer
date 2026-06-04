@@ -290,7 +290,7 @@
     width: 4px; height: 4px;
   }
   .orb-thought.show {
-    animation: thought-float 3.5s cubic-bezier(0.2, 0, 0.2, 1);
+    animation: thought-float 5s cubic-bezier(0.2, 0, 0.2, 1);
   }
   @keyframes thought-float {
     0%   { opacity: 0; transform: translate(-4px, 6px) scale(0.9); }
@@ -1197,7 +1197,7 @@ const THOUGHTS = [
 ];
 
 function scheduleThought(initialDelay) {
-  const delay = initialDelay != null ? initialDelay : 4000; // every 4s
+  const delay = initialDelay != null ? initialDelay : 8000; // 5s show + 3s gap
   setTimeout(() => {
     const orb = document.querySelector('.mini-orb');
     if (orb && document.visibilityState === 'visible' && currentRoute() === 'chat') {
@@ -1212,7 +1212,7 @@ function scheduleThought(initialDelay) {
       // Force reflow then start animation
       void bubble.offsetWidth;
       bubble.classList.add('show');
-      setTimeout(() => bubble.remove(), 3600);
+      setTimeout(() => bubble.remove(), 5100);
     }
     scheduleThought();
   }, delay);
