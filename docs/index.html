@@ -896,7 +896,7 @@ function nextMessageId() {
 const MOCK_REPLIES = [
   '（这是 demo · AI 回复部分未接入。线上版本会调 Claude，在这里温和地回应你，并悄悄把这件事记到 ta 的"生活事件"里。）',
   '（这是 demo · Recorder 已经"看到"了你说的话。在真实版本里，它会用工具调用把这条记录的关键信息抽到 SQLite 里。）',
-  '（这是 demo · 想真实体验记录 + 观察的完整流程，请克隆 GitHub 仓库本地跑：需要 Anthropic API key。）',
+  '（这是 demo · 想真实体验记录 + 观察的完整流程，请克隆 GitHub 仓库本地跑。）',
 ];
 function pickMockReply(_userText) {
   return MOCK_REPLIES[Math.floor(Math.random() * MOCK_REPLIES.length)];
