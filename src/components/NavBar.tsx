@@ -11,9 +11,9 @@ export function NavBar() {
       <div className="mx-auto max-w-3xl px-6 h-14 flex items-center justify-between">
         <Link
           href="/"
-          className="text-[15px] font-semibold tracking-tight text-foreground"
+          className="text-[15px] font-semibold tracking-[0.04em] text-foreground"
         >
-          观察
+          观察·Observer
         </Link>
         <nav className="flex items-center gap-1 text-[13px]">
           <Link
