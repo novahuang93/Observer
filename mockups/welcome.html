@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>观察 · Observer — 第一次打招呼</title>
+<style>
+  :root {
+    --bg-window: #fbfbfd;
+    --fg: #1d1d1f;
+    --fg-2: #6e6e73;
+    --fg-3: #86868b;
+    --line: rgba(0,0,0,0.08);
+    --line-soft: rgba(0,0,0,0.05);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+    letter-spacing: -0.011em;
+    background: linear-gradient(135deg, #f5f5f7 0%, #ebebee 100%);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+  }
+  .scene {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 56px 48px 80px;
+  }
+  .stack { display: flex; flex-direction: column; align-items: center; gap: 28px; }
+  .caption {
+    font-size: 13px; color: var(--fg-3);
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .window {
+    position: relative;
+    width: 1080px;
+    background: var(--bg-window);
+    border-radius: 18px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.5) inset,
+      0 30px 90px -30px rgba(20,20,30,0.32),
+      0 12px 36px -12px rgba(20,20,30,0.18),
+      0 1px 3px rgba(0,0,0,0.08);
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.04);
+  }
+  .titlebar {
+    height: 36px; background: #f1f1f3;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 8px;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.r { background: #ff5f57; }
+  .dot.y { background: #febc2e; }
+  .dot.g { background: #28c840; }
+  .url {
+    margin-left: 14px;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 6px;
+    font-size: 12px; color: var(--fg-2);
+    padding: 3px 12px; flex: 1;
+    text-align: center; max-width: 360px;
+  }
+  .navbar {
+    height: 56px; padding: 0 28px;
+    border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255,255,255,0.75);
+  }
+  .brand { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: var(--fg); display: flex; align-items: center; gap: 10px; }
+  .brand .sub { color: var(--fg-3); font-weight: 500; margin-left: 4px; }
+  .logo-orb {
+    width: 22px; height: 22px; border-radius: 50%; position: relative;
+    background:
+      radial-gradient(circle at 32% 26%, rgba(90,90,96,0.55) 0%, rgba(90,90,96,0) 30%),
+      radial-gradient(circle at 60% 65%, #1a1a1c 0%, #08080a 95%);
+    box-shadow: 0 3px 8px -2px rgba(0,0,0,0.32), inset 0 -2px 4px -1px rgba(0,0,0,0.55);
+    display: flex; align-items: center; justify-content: center; gap: 3px;
+  }
+  .logo-orb::before, .logo-orb::after {
+    content: ''; width: 3px; height: 3px; border-radius: 50%; background: #f5f5f7;
+  }
+  .tabs { display: flex; gap: 4px; font-size: 13px; }
+  .tab { padding: 6px 14px; border-radius: 999px; color: var(--fg-2); }
+  .tab.active { background: rgba(0,0,0,0.06); color: var(--fg); font-weight: 500; }
+
+  /* Centered ceremonial welcome */
+  .welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 24px 96px;
+    min-height: 640px;
+    gap: 0;
+  }
+
+  /* The hero orb — bigger, breathing, with two soft halos */
+  .hero-orb {
+    position: relative;
+    width: 110px; height: 110px;
+  }
+  .hero-halo-wide {
+    position: absolute; inset: -64px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(20,20,22,0.1) 0%, rgba(20,20,22,0) 58%);
+  }
+  .hero-halo {
+    position: absolute; inset: -28px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(20,20,22,0.18) 0%, rgba(20,20,22,0) 62%);
+  }
+  .hero-core {
+    position: absolute; inset: 0; border-radius: 50%;
+    background:
+      radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 26%),
+      radial-gradient(circle at 60% 65%, #3a3a40 0%, #08080a 95%);
+    box-shadow:
+      0 14px 44px -8px rgba(0,0,0,0.32),
+      inset 0 -12px 20px -8px rgba(0,0,0,0.55),
+      inset 0 1px 2px rgba(255,255,255,0.18);
+  }
+
+  .greeting {
+    margin-top: 56px;
+    max-width: 460px;
+    text-align: center;
+    font-size: 17px;
+    line-height: 1.85;
+    color: var(--fg);
+    white-space: pre-wrap;
+  }
+
+  .input-wrap {
+    margin-top: 44px;
+    width: 100%;
+    max-width: 460px;
+  }
+  .input {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 10px 10px 18px;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 28px -12px rgba(0,0,0,0.16);
+  }
+  .input .placeholder { color: var(--fg-3); font-size: 15px; flex: 1; }
+  .send-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,0,0,0.08);
+    color: var(--fg-3);
+    display: flex; align-items: center; justify-content: center;
+  }
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="stack">
+    <div class="window">
+      <div class="titlebar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="url">observer.app</span>
+      </div>
+      <div class="navbar">
+        <div class="brand"><span class="logo-orb"></span>观察<span class="sub"> · Observer</span></div>
+        <div class="tabs">
+          <div class="tab active">记录</div>
+          <div class="tab">观察</div>
+        </div>
+      </div>
+
+      <div class="welcome">
+        <div class="hero-orb">
+          <div class="hero-halo-wide"></div>
+          <div class="hero-halo"></div>
+          <div class="hero-core"></div>
+        </div>
+
+        <p class="greeting">嗨，我们刚认识。
+
+我会在这儿安静地陪你记录日常——开心的、烦的、随手一想的——都行，不用整理。
+
+先问一下，我怎么称呼你？</p>
+
+        <div class="input-wrap">
+          <div class="input">
+            <div class="placeholder">怎么称呼你？</div>
+            <div class="send-btn">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M8 13V3M8 3L3.5 7.5M8 3L12.5 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="caption">首次见面 · 仪式感欢迎页</div>
+  </div>
+</div>
+</body>
+</html>
