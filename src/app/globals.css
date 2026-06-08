@@ -62,25 +62,17 @@ body {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  /* Matte, lightly top-lit body — no glossy specular. The radial is
-     just a hint that the light comes from above; everything else is
-     flat color so it reads as fabric rather than plastic. */
   background:
     radial-gradient(
-      circle at 50% 30%,
-      rgba(255, 255, 255, 0.07) 0%,
-      rgba(255, 255, 255, 0) 65%
+      circle at 32% 28%,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0) 26%
     ),
-    #1d1d20;
-  /* Multiple low-alpha shadows in the body color create a soft fuzz
-     fringe — the silhouette stops feeling crisp and starts reading
-     as a fluffy edge. The last shadow is the (very gentle) ground
-     cast so the orb still has weight. */
+    radial-gradient(circle at 60% 65%, #3a3a40 0%, #08080a 95%);
   box-shadow:
-    0 0 0 1px rgba(29, 29, 32, 0.45),
-    0 0 6px 2px rgba(29, 29, 32, 0.42),
-    0 0 14px 4px rgba(29, 29, 32, 0.22),
-    0 8px 22px -10px rgba(0, 0, 0, 0.25);
+    0 10px 36px -6px rgba(0, 0, 0, 0.28),
+    inset 0 -10px 16px -6px rgba(0, 0, 0, 0.55),
+    inset 0 1px 2px rgba(255, 255, 255, 0.18);
   animation: orb-drift 6s ease-in-out infinite;
   display: flex;
   align-items: center;
@@ -234,16 +226,13 @@ body {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  /* Matte body — see .orb-core for the rationale. Scaled down for 40px. */
   background:
-    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 65%),
-    #1d1d20;
-  /* Fuzz fringe in the body color, plus a small ground cast. */
+    radial-gradient(circle at 32% 26%, rgba(90, 90, 96, 0.55) 0%, rgba(90, 90, 96, 0) 30%),
+    radial-gradient(circle at 60% 65%, #1a1a1c 0%, #08080a 95%);
   box-shadow:
-    0 0 0 0.5px rgba(29, 29, 32, 0.45),
-    0 0 4px 1.5px rgba(29, 29, 32, 0.42),
-    0 0 9px 3px rgba(29, 29, 32, 0.22),
-    0 4px 12px -6px rgba(0, 0, 0, 0.28);
+    0 6px 16px -3px rgba(0, 0, 0, 0.32),
+    inset 0 -4px 8px -2px rgba(0, 0, 0, 0.55),
+    inset 0 1px 1px rgba(255, 255, 255, 0.12);
   animation: orb-drift 5.5s ease-in-out infinite;
   display: flex;
   align-items: center;
@@ -289,20 +278,18 @@ body {
 .mini-orb[data-glance="right"] .orb-eyes { transform: translateX(5.5px); }
 .mini-orb[data-glance="left"] .orb-eyes { transform: translateX(-5.5px); }
 
-/* Light variant — the Observer Agent's pale twin. Same flat / fuzzy
-   treatment as the dark variants, just in a pale palette. */
+/* Light variant — the Observer Agent's pale twin */
 .mini-orb.light .mini-orb-core {
   background:
-    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 65%),
-    #d8d8dc;
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 30%),
+    radial-gradient(circle at 60% 65%, #ececef 0%, #c8c8cc 95%);
   box-shadow:
-    0 0 0 0.5px rgba(180, 180, 188, 0.55),
-    0 0 4px 1.5px rgba(180, 180, 188, 0.45),
-    0 0 9px 3px rgba(180, 180, 188, 0.25),
-    0 4px 12px -6px rgba(0, 0, 0, 0.12);
+    0 6px 16px -3px rgba(0, 0, 0, 0.14),
+    inset 0 -4px 8px -2px rgba(0, 0, 0, 0.1),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6);
 }
 .mini-orb.light .mini-orb-halo {
-  background: radial-gradient(circle, rgba(160, 160, 168, 0.18) 0%, rgba(160, 160, 168, 0) 62%);
+  background: radial-gradient(circle, rgba(120, 120, 128, 0.16) 0%, rgba(120, 120, 128, 0) 62%);
 }
 .mini-orb.light .orb-eye {
   background: #2a2a2c;
