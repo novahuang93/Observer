@@ -65,6 +65,26 @@ export function FeedList() {
   const fromOnboarding = searchParams?.get("from") === "onboarding";
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
+  // When the user lands here straight from onboarding, the Observer just
+  // wrote a few observations from what they shared. Snapshot which IDs
+  // those are on first load so we can animate them in distinctly — and
+  // never re-trigger the animation on subsequent polls.
+  const [freshIds, setFreshIds] = useState<Set<number> | null>(null);
+  useEffect(() => {
+    if (!loaded || !fromOnboarding || freshIds !== null) return;
+    if (items.length === 0) {
+      setFreshIds(new Set());
+      return;
+    }
+    const newest = items[0].created_at;
+    // Observer inserts all of its observations within a few ms of each
+    // other, but allow 5s of slack for clock + insert latency.
+    const ids = items
+      .filter((o) => newest - o.created_at < 5000)
+      .map((o) => o.id);
+    setFreshIds(new Set(ids));
+  }, [loaded, fromOnboarding, items, freshIds]);
+
   // Initial load
   useEffect(() => {
     Promise.all([fetchFeed(), fetchEvents()])
@@ -197,16 +217,27 @@ export function FeedList() {
         )}
 
         <div className="flex flex-col gap-4">
-          {items.map((o) => (
-            <Card
-              key={o.id}
-              obs={o}
-              eventsById={eventsById}
-              onFeedback={(next) => handleFeedback(o.id, next)}
-              onReply={(reply) => handleReply(o.id, reply)}
-              onToast={showToast}
-            />
-          ))}
+          {(() => {
+            // Walk items top-down; assign a sequential freshOrder to the
+            // ones in freshIds so the appear-in animation can stagger
+            // them. Older items render with freshOrder=-1 (no animation).
+            let nextFreshOrder = 0;
+            return items.map((o) => {
+              const freshOrder =
+                freshIds && freshIds.has(o.id) ? nextFreshOrder++ : -1;
+              return (
+                <Card
+                  key={o.id}
+                  obs={o}
+                  eventsById={eventsById}
+                  onFeedback={(next) => handleFeedback(o.id, next)}
+                  onReply={(reply) => handleReply(o.id, reply)}
+                  onToast={showToast}
+                  freshOrder={freshOrder}
+                />
+              );
+            });
+          })()}
         </div>
       </div>
 
@@ -231,12 +262,14 @@ function Card({
   onFeedback,
   onReply,
   onToast,
+  freshOrder,
 }: {
   obs: Observation;
   eventsById: Map<number, LifeEvent>;
   onFeedback: (next: Feedback) => void;
   onReply: (reply: string | null) => void;
   onToast: (msg: string) => void;
+  freshOrder: number;
 }) {
   // Resolve the event IDs the Observer cited into actual event rows.
   // Silently skip IDs we can't find (older than the 7-day window).
@@ -315,7 +348,14 @@ function Card({
   }
 
   return (
-    <article className="bg-white border border-separator-soft rounded-3xl px-7 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_28px_-16px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_2px_4px_rgba(0,0,0,0.04),0_12px_36px_-16px_rgba(0,0,0,0.16)]">
+    <article
+      className={`bg-white border border-separator-soft rounded-3xl px-7 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_28px_-16px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_2px_4px_rgba(0,0,0,0.04),0_12px_36px_-16px_rgba(0,0,0,0.16)]${freshOrder >= 0 ? " just-arrived" : ""}`}
+      style={
+        freshOrder >= 0
+          ? { animationDelay: `${freshOrder * 220}ms` }
+          : undefined
+      }
+    >
       <div className="flex items-center gap-2 mb-3">
         <span className={`text-[11px] uppercase tracking-[0.12em] font-medium ${KIND_STYLE[obs.kind]}`}>
           {KIND_LABEL[obs.kind]}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, ViewTransition } from "react";
 
 const THOUGHTS = [
   "今天天气好像还不错",
@@ -117,27 +117,34 @@ export function MiniOrb({ variant = "dark" }: { variant?: Variant }) {
     };
   }, []);
 
+  // Shared name with the welcome orb in <OnboardingFlow /> so the
+  // browser morphs that 88px center orb into this 40px top-left one
+  // when the onboarding → /feed navigation runs. Applied to both
+  // variants so future chat ↔ feed navigations get the same handoff
+  // for free.
   return (
-    <div
-      ref={orbRef}
-      className={`mini-orb${variant === "light" ? " light" : ""}${
-        blinking ? " blinking" : ""
-      }`}
-      data-glance={glance ?? undefined}
-      aria-hidden="true"
-    >
-      <div className="mini-orb-halo" />
-      <div className="mini-orb-core">
-        <div className="orb-eyes">
-          <div className="orb-eye" />
-          <div className="orb-eye" />
+    <ViewTransition name="observer-orb">
+      <div
+        ref={orbRef}
+        className={`mini-orb${variant === "light" ? " light" : ""}${
+          blinking ? " blinking" : ""
+        }`}
+        data-glance={glance ?? undefined}
+        aria-hidden="true"
+      >
+        <div className="mini-orb-halo" />
+        <div className="mini-orb-core">
+          <div className="orb-eyes">
+            <div className="orb-eye" />
+            <div className="orb-eye" />
+          </div>
         </div>
+        {thought && (
+          <div key={thought.id} className="orb-thought show">
+            {thought.text}
+          </div>
+        )}
       </div>
-      {thought && (
-        <div key={thought.id} className="orb-thought show">
-          {thought.text}
-        </div>
-      )}
-    </div>
+    </ViewTransition>
   );
 }

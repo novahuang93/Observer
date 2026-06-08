@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, ViewTransition } from "react";
 import { useRouter } from "next/navigation";
 
 type Phase = "greet" | "questions" | "submitting" | "done";
@@ -145,11 +145,7 @@ function GreetPhase({
   }
   return (
     <div className="flex flex-col items-center justify-center flex-1 w-full max-w-md">
-      <div className="welcome-in-1 orb" aria-hidden="true">
-        <div className="orb-halo-wide" />
-        <div className="orb-halo" />
-        <div className="orb-core" />
-      </div>
+      <WelcomeOrb entryClass="welcome-in-1" />
       <p className="welcome-in-2 mt-14 text-center text-[17px] leading-[1.85] text-foreground">
         嗨，我们刚认识。
         {"\n"}
@@ -233,11 +229,7 @@ function QuestionsPhase({
 
   return (
     <div className="welcome-in-1 flex flex-col items-center justify-center flex-1 w-full max-w-md">
-      <div className="orb" aria-hidden="true">
-        <div className="orb-halo-wide" />
-        <div className="orb-halo" />
-        <div className="orb-core" />
-      </div>
+      <WelcomeOrb />
 
       <p className="welcome-in-2 mt-14 text-center text-[17px] leading-[1.85] text-foreground">
         {displayName ? `好，${displayName}。` : "好。"}
@@ -297,17 +289,43 @@ function QuestionsPhase({
   );
 }
 
+// Soft narration during the observer's run. The Observer is one
+// non-streaming LLM call (~3–10s) so we have nothing real to report —
+// instead the lines mirror what ta would plausibly be doing, paced
+// slow enough to feel quiet rather than chatty. Last line holds
+// indefinitely so a slow run still feels like the orb is mid-thought,
+// not stuck on a loop.
+const THINKING_LINES = [
+  "ta 在读你刚说的…",
+  "回头翻了翻最近的事…",
+  "想该怎么写下来…",
+  "差不多了…",
+];
+const LINE_INTERVAL_MS = 3000;
+
 function SubmittingPhase({ name }: { name: string }) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => {
+      setIdx((i) => Math.min(i + 1, THINKING_LINES.length - 1));
+    }, LINE_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, []);
+
+  const prefix =
+    idx === 0 && name !== FALLBACK_NAME ? `${name}，` : "";
+
   return (
     <div className="flex flex-col items-center justify-center flex-1 w-full max-w-md">
-      <div className="orb" aria-hidden="true">
-        <div className="orb-halo-wide" />
-        <div className="orb-halo" />
-        <div className="orb-core" />
-      </div>
-      <p className="mt-12 text-center text-[16px] leading-[1.7] text-secondary">
-        {name === FALLBACK_NAME ? "" : `${name}，`}
-        ta 正在想…
+      <WelcomeOrb />
+      <p
+        className="mt-12 text-center text-[16px] leading-[1.7] text-secondary"
+        aria-live="polite"
+      >
+        <span key={idx} className="placeholder-rotate inline-block">
+          {prefix}
+          {THINKING_LINES[idx]}
+        </span>
       </p>
     </div>
   );
@@ -316,14 +334,34 @@ function SubmittingPhase({ name }: { name: string }) {
 function DonePhase() {
   return (
     <div className="flex flex-col items-center justify-center flex-1 w-full max-w-md">
-      <div className="orb" aria-hidden="true">
-        <div className="orb-halo-wide" />
-        <div className="orb-halo" />
-        <div className="orb-core" />
-      </div>
+      {/* Same view-transition name as <MiniOrb /> on /feed — when the
+          router navigates from here, the browser morphs this 88px center
+          orb into the 40px top-left mini-orb. */}
+      <ViewTransition name="observer-orb">
+        <WelcomeOrb />
+      </ViewTransition>
       <p className="mt-12 text-center text-[16px] leading-[1.7] text-secondary">
         想好了，给你看看。
       </p>
+    </div>
+  );
+}
+
+// 88px sphere with halos + eyes — the welcome-page version of the
+// Observer's character. Eyes use the shared .orb-eye class so the
+// mini-orb's blink animation applies here too; sizes are bumped up
+// in globals.css via the `.orb .orb-eye` rule.
+function WelcomeOrb({ entryClass }: { entryClass?: string }) {
+  return (
+    <div className={`orb${entryClass ? ` ${entryClass}` : ""}`} aria-hidden="true">
+      <div className="orb-halo-wide" />
+      <div className="orb-halo" />
+      <div className="orb-core">
+        <div className="orb-eyes">
+          <div className="orb-eye" />
+          <div className="orb-eye" />
+        </div>
+      </div>
     </div>
   );
 }
