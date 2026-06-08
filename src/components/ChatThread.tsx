@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { MiniOrb } from "./MiniOrb";
+import { OnboardingFlow } from "./OnboardingFlow";
 
 type Message = {
   id: number;
@@ -29,6 +30,7 @@ export function ChatThread() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -36,8 +38,9 @@ export function ChatThread() {
   useEffect(() => {
     fetch("/api/chat")
       .then((r) => r.json())
-      .then((d: { messages: Message[] }) => {
+      .then((d: { messages: Message[]; onboarded?: boolean }) => {
         setMessages(d.messages ?? []);
+        setOnboarded(Boolean(d.onboarded));
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -159,6 +162,12 @@ export function ChatThread() {
   }
 
   const grouped = groupByDate(messages);
+
+  // Brand-new visitor: take them through onboarding (name → 3 prompts →
+  // first observation) before dropping them into normal chat.
+  if (loaded && onboarded === false) {
+    return <OnboardingFlow />;
+  }
 
   // First-time ceremonial layout: only the seeded greeting exists and the
   // user hasn't typed anything yet. We swap in the orb + centered input

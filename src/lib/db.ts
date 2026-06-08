@@ -100,6 +100,11 @@ function init(db: Database.Database) {
     `);
   }
 
+  // Track per-visitor onboarding completion so we know not to show the
+  // onboarding flow again. NULL means "never onboarded" (new visitor or
+  // visitor who has never finished the intro).
+  ensureColumn(db, "visitor_profiles", "onboarded_at", "INTEGER");
+
   ensureSeed(db);
 }
 
@@ -281,7 +286,7 @@ function ensureSeed(db: Database.Database) {
 export function getProfile(db: Database.Database, visitorId: string): UserProfileRow | null {
   return (db
     .prepare(
-      "SELECT visitor_id, display_name, created_at, updated_at FROM visitor_profiles WHERE visitor_id = ?",
+      "SELECT visitor_id, display_name, onboarded_at, created_at, updated_at FROM visitor_profiles WHERE visitor_id = ?",
     )
     .get(visitorId) as UserProfileRow | undefined) ?? null;
 }
@@ -381,6 +386,25 @@ export type ObservationRow = {
 export type UserProfileRow = {
   visitor_id: string;
   display_name: string | null;
+  onboarded_at: number | null;
   created_at: number;
   updated_at: number;
 };
+
+export function isOnboarded(db: Database.Database, visitorId: string): boolean {
+  const row = db
+    .prepare(
+      "SELECT onboarded_at FROM visitor_profiles WHERE visitor_id = ?",
+    )
+    .get(visitorId) as { onboarded_at: number | null } | undefined;
+  return Boolean(row && row.onboarded_at);
+}
+
+export function markOnboarded(db: Database.Database, visitorId: string): void {
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO visitor_profiles (visitor_id, display_name, onboarded_at, created_at, updated_at)
+     VALUES (?, NULL, ?, ?, ?)
+     ON CONFLICT(visitor_id) DO UPDATE SET onboarded_at = excluded.onboarded_at, updated_at = excluded.updated_at`,
+  ).run(visitorId, now, now, now);
+}

@@ -153,6 +153,19 @@ body {
   }
 }
 
+/* Onboarding placeholder rotation — fades in, holds, fades out.
+   Duration matches the JS interval (3.5s) so each prompt has a clean
+   cycle before the next mounts in. */
+@keyframes placeholder-rotate {
+  0%   { opacity: 0; transform: translateY(4px); }
+  18%  { opacity: 1; transform: translateY(0); }
+  82%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+.placeholder-rotate {
+  animation: placeholder-rotate 3.5s ease-in-out both;
+}
+
 /* --- Mini orb: the Observer's quiet presence in the top-left --- */
 .mini-orb {
   position: fixed;

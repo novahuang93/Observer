@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MiniOrb } from "./MiniOrb";
 import { RelatedEvents, type LifeEvent } from "./EventTimeline";
 
@@ -60,6 +61,9 @@ export function FeedList() {
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const { toast, show: showToast } = useToast();
+  const searchParams = useSearchParams();
+  const fromOnboarding = searchParams?.get("from") === "onboarding";
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Initial load
   useEffect(() => {
@@ -157,6 +161,30 @@ export function FeedList() {
             )}
           </button>
         </div>
+
+        {fromOnboarding && !bannerDismissed && (
+          <div className="mb-8 px-5 py-4 rounded-2xl bg-accent-soft flex items-center justify-between gap-3">
+            <div className="text-[14px] text-foreground leading-[1.55]">
+              <span className="font-medium">ta 看了你说的话，写了下面这条。</span>
+              <span className="text-secondary">
+                {" "}想让 ta 看到更多？
+              </span>
+              <Link
+                href="/"
+                className="ml-1 text-accent underline-offset-2 hover:underline"
+              >
+                继续跟 ta 说 →
+              </Link>
+            </div>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              aria-label="收起"
+              className="shrink-0 text-tertiary hover:text-secondary text-[18px] leading-none px-1"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {message && (
           <div className="mb-8 px-5 py-4 rounded-2xl bg-accent-soft text-[14px] text-foreground">

@@ -68,11 +68,15 @@ export type ObservationInput = {
   related_event_ids: number[];
 };
 
-export async function runObserver(visitorId: string): Promise<{
+export async function runObserver(
+  visitorId: string,
+  opts: { minEvents?: number } = {},
+): Promise<{
   created: number;
   observations: ObservationRow[];
   hadEnoughData: boolean;
 }> {
+  const minEvents = opts.minEvents ?? 2;
   const db = getDb();
   const now = Date.now();
   const since = now - RECENT_EVENT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
@@ -90,7 +94,7 @@ export async function runObserver(visitorId: string): Promise<{
     "id" | "category" | "content" | "mood" | "occurred_at"
   >[];
 
-  if (recentEvents.length < 2) {
+  if (recentEvents.length < minEvents) {
     return { created: 0, observations: [], hadEnoughData: false };
   }
 

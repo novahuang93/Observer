@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DEMO_VISITOR_ID, getDb, getProfile, type MessageRow } from "@/lib/db";
+import { DEMO_VISITOR_ID, getDb, getProfile, isOnboarded, type MessageRow } from "@/lib/db";
 import { runRecorder } from "@/lib/agents/recorder";
 import { runObserver } from "@/lib/agents/observer";
 import { getVisitor, withVisitorCookie } from "@/lib/visitor";
@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     profile: profile
       ? { display_name: profile.display_name }
       : { display_name: null },
+    onboarded: isOnboarded(db, visitor.visitorId),
   }), visitor);
 }
 
